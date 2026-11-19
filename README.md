@@ -4,7 +4,21 @@
 
 Surface EMG from the calf muscle is filtered in real time and streamed into a Unity game: **every calf burst moves the character one stride** along a 50 m course, past three swinging hammers.
 
-**[Try the interactive prototype in your browser →](https://prashantjangir-git-hub.github.io/emg-vr-walking/)** Watch a real recording drive the walker, switch between the four filters, or hold a button to flex and dodge the hammers yourself. It runs the same filters and step detector as the Python bridge.
+<br>
+
+<p align="center">
+  <a href="https://prashantjangir-git-hub.github.io/emg-vr-walking/">
+    <img src="https://img.shields.io/badge/%E2%96%B6%20%20Try%20the%20live%20prototype-in%20your%20browser-0c969c?style=for-the-badge&labelColor=274d60" alt="Try the live prototype in your browser" height="46">
+  </a>
+</p>
+
+<p align="center">
+  Watch a real recording drive the walker, switch between the four filters,<br>
+  or hold a button to flex and dodge the hammers yourself.<br>
+  <sub>Runs the same filters and step detector as the Python bridge · works on desktop and phone</sub>
+</p>
+
+<br>
 
 ![Live demo: EMG electrodes on the calf, the BioRadio in hand, and the character walking in the game](docs/images/demo.gif)
 
