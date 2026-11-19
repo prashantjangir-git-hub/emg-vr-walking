@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Crect width='26' height='26' rx='7' fill='%23050c17'/%3E%3Cpath d='M3 14h4l2-6 3 12 3-15 3 11 2-2h3' fill='none' stroke='%233cc7c2' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<meta property="og:title" content="EMG Walking Control">
+<meta property="og:description" content="Surface EMG from the calf, filtered in real time, moves a character one stride per muscle burst. Try the full pipeline in your browser.">
+<meta name="theme-color" content="#050c17">
+<title>EMG Walking Control</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Surface EMG from the calf, filtered in real time, moves a character one stride per muscle burst. Try the full pipeline in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: liquid-glass panels floating over slowly morphing biosignal-coloured blobs; one big "console" holds the prototype. */
+:root {
+  --bg: #050c17; --bg-2: #0a1a2c;
+  --ink: #e8f3f6; --ink-2: #a8c1cb; --ink-3: #7f99a6;
+  --glass: rgba(255,255,255,0.06); --glass-2: rgba(255,255,255,0.11); --glass-edge: rgba(255,255,255,0.16);
+  --glass-hi: rgba(255,255,255,0.38); --sheen: rgba(255,255,255,0.14); --shadow: rgba(0,0,0,0.5);
+  --accent: #3cc7c2; --accent-ink: #04211f; --accent-soft: rgba(60,199,194,0.18);
+  --amber: #f2b544; --danger: #ff6b6b; --plot-grid: rgba(255,255,255,0.07); --plot-raw: #8fb4c4;
+  --blob-1: #0e7c86; --blob-2: #2141b8; --blob-3: #f2b544; --blob-4: #0b4f6c;
+  --f-display: "Sora", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r-xl: 30px; --r-lg: 22px; --r-md: 16px; --r-pill: 999px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #e7eff4; --bg-2: #f4f8fa;
+  --ink: #0c2131; --ink-2: #3a5262; --ink-3: #5a7282;
+  --glass: rgba(255,255,255,0.42); --glass-2: rgba(255,255,255,0.66); --glass-edge: rgba(255,255,255,0.85);
+  --glass-hi: rgba(255,255,255,0.95); --sheen: rgba(255,255,255,0.6); --shadow: rgba(16,44,66,0.18);
+  --accent: #0a7c84; --accent-ink: #f2fbfb; --accent-soft: rgba(10,124,132,0.14);
+  --amber: #a86c00; --danger: #c93a3a; --plot-grid: rgba(12,33,49,0.08); --plot-raw: #4f7385;
+  --blob-1: #7fe0d8; --blob-2: #a9bbff; --blob-3: #ffd27a; --blob-4: #9fd6e8;
+  color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #e7eff4; --bg-2: #f4f8fa;
+  --ink: #0c2131; --ink-2: #3a5262; --ink-3: #5a7282;
+  --glass: rgba(255,255,255,0.42); --glass-2: rgba(255,255,255,0.66); --glass-edge: rgba(255,255,255,0.85);
+  --glass-hi: rgba(255,255,255,0.95); --sheen: rgba(255,255,255,0.6); --shadow: rgba(16,44,66,0.18);
+  --accent: #0a7c84; --accent-ink: #f2fbfb; --accent-soft: rgba(10,124,132,0.14);
+  --amber: #a86c00; --danger: #c93a3a; --plot-grid: rgba(12,33,49,0.08); --plot-raw: #4f7385;
+  --blob-1: #7fe0d8; --blob-2: #a9bbff; --blob-3: #ffd27a; --blob-4: #9fd6e8;
+  color-scheme: light; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.6 var(--f-body); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 10px; }
+
+/* ---------- liquid background ---------- */
+.liquid { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; background: radial-gradient(120% 80% at 50% 0%, var(--bg-2), var(--bg) 70%); }
+.blob { position: absolute; width: 46vmax; height: 46vmax; opacity: 0.5; filter: blur(70px); border-radius: 42% 58% 63% 37% / 45% 39% 61% 55%;
+  will-change: transform; animation: drift 30s ease-in-out infinite alternate; }
+.blob.b1 { background: var(--blob-1); top: -12vmax; left: -10vmax; }
+.blob.b2 { background: var(--blob-2); top: 18vh; right: -16vmax; border-radius: 63% 37% 41% 59% / 58% 62% 38% 42%; animation-duration: 38s; animation-delay: -10s; }
+.blob.b3 { background: var(--blob-3); bottom: -22vmax; left: 22vw; width: 34vmax; height: 34vmax; opacity: 0.28; animation-duration: 44s; animation-delay: -4s; }
+.blob.b4 { background: var(--blob-4); top: 55vh; left: -14vmax; border-radius: 36% 64% 52% 48% / 38% 55% 45% 62%; animation-duration: 34s; animation-delay: -20s; }
+/* transform-only, so the blurred blobs never repaint: rotating a lopsided blob while squashing it reads as a slow liquid morph */
+@keyframes drift { 0% { transform: translate(0, 0) rotate(0deg) scale(1, 1); } 50% { transform: translate(3vw, 4vh) rotate(45deg) scale(1.16, 0.9); } 100% { transform: translate(6vw, -2vh) rotate(90deg) scale(0.94, 1.14); } }
+
+/* lite mode: on devices that cannot keep up (measured after load), static blobs and no backdrop blur */
+.lite .blob { display: none; }
+.lite .liquid { background:
+  radial-gradient(42vmax 42vmax at 8% 4%, color-mix(in srgb, var(--blob-1) 55%, transparent), transparent 70%),
+  radial-gradient(40vmax 40vmax at 96% 34%, color-mix(in srgb, var(--blob-2) 50%, transparent), transparent 70%),
+  radial-gradient(38vmax 38vmax at 0% 78%, color-mix(in srgb, var(--blob-4) 50%, transparent), transparent 70%),
+  radial-gradient(30vmax 30vmax at 48% 104%, color-mix(in srgb, var(--blob-3) 30%, transparent), transparent 70%),
+  radial-gradient(120% 80% at 50% 0%, var(--bg-2), var(--bg) 70%); }
+.lite .glass, .lite .btn, .lite .hud .pill, .lite .finish { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* ---------- glass ---------- */
+.glass { position: relative; background: linear-gradient(150deg, var(--glass-2), var(--glass)); border: 1px solid var(--glass-edge);
+  border-radius: var(--r-xl); box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 rgba(255,255,255,0.03), 0 30px 70px -30px var(--shadow);
+  -webkit-backdrop-filter: blur(22px) saturate(170%); backdrop-filter: blur(22px) saturate(170%); isolation: isolate; }
+.glass::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
+  background: radial-gradient(90% 55% at 12% 0%, var(--sheen), transparent 60%), radial-gradient(60% 40% at 100% 100%, var(--accent-soft), transparent 70%); }
+
+.wrap { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* ---------- nav ---------- */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; padding-block: 14px; }
+.nav-in { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 18px; border-radius: var(--r-pill); }
+.brand { display: flex; align-items: center; gap: 10px; font: 600 15px/1 var(--f-display); text-decoration: none; letter-spacing: -0.01em; white-space: nowrap; }
+.brand svg { width: 26px; height: 26px; flex: none; }
+.nav-links { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+.nav-links a { text-decoration: none; font: 500 14px/1 var(--f-body); color: var(--ink-2); padding: 10px 14px; border-radius: var(--r-pill); transition: background .25s, color .25s; }
+.nav-links a:hover { background: var(--glass-2); color: var(--ink); }
+.nav-links a.cta { background: var(--accent); color: var(--accent-ink); }
+@media (max-width: 720px) { .nav-links a:not(.cta) { display: none; } }
+
+/* ---------- type ---------- */
+h1, h2, h3 { font-family: var(--f-display); letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.3rem, 5.2vw, 4.2rem); line-height: 1.04; font-weight: 700; }
+h2 { font-size: clamp(1.7rem, 3vw, 2.4rem); line-height: 1.1; font-weight: 600; }
+h3 { font-size: 1.15rem; line-height: 1.25; font-weight: 600; }
+.eyebrow { font: 500 12px/1.2 var(--f-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.lead { font-size: 1.12rem; color: var(--ink-2); max-width: 60ch; }
+p { margin: 0; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+section { padding-block: clamp(48px, 7vw, 96px); }
+.sec-head { display: grid; gap: 12px; margin-bottom: 28px; max-width: 70ch; }
+
+/* ---------- hero ---------- */
+.hero { padding-block: clamp(28px, 6vw, 72px) 28px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr); gap: 32px; align-items: end; }
+.hero-copy { display: grid; gap: 20px; }
+.hero-copy h1 .burst { background: linear-gradient(100deg, var(--accent), var(--amber)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; font: 600 15px/1 var(--f-body); padding: 13px 20px; border-radius: var(--r-pill); text-decoration: none; cursor: pointer;
+  border: 1px solid var(--glass-edge); background: linear-gradient(150deg, var(--glass-2), var(--glass)); color: var(--ink); box-shadow: inset 0 1px 0 var(--glass-hi);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); transition: transform .35s cubic-bezier(.34,1.56,.64,1), background .25s; }
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: scale(0.96); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.spec { padding: 22px; display: grid; gap: 2px; }
+.spec-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 2px; border-bottom: 1px solid var(--glass-edge); font-size: 14px; }
+.spec-row:last-child { border-bottom: 0; }
+.spec-row span:first-child { color: var(--ink-2); }
+.spec-row span:last-child { font-family: var(--f-mono); font-variant-numeric: tabular-nums; color: var(--ink); text-align: right; }
+@media (max-width: 860px) { .hero { grid-template-columns: 1fr; align-items: start; } }
+
+/* ---------- console (prototype) ---------- */
+.console { padding: clamp(14px, 2vw, 22px); display: grid; gap: 16px; }
+.console-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 4px 6px 0; }
+.console-head h2 { font-size: clamp(1.25rem, 2.2vw, 1.6rem); margin-right: auto; }
+.chip { display: inline-flex; align-items: center; gap: 8px; font: 500 13px/1 var(--f-mono); padding: 8px 12px; border-radius: var(--r-pill); background: var(--glass-2); border: 1px solid var(--glass-edge); white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex: none; }
+.chip[data-state="cal"] .dot { background: var(--amber); animation: pulse 1s ease-in-out infinite; }
+.chip[data-state="rest"] .dot { background: var(--accent); }
+.chip[data-state="active"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.chip[data-state="active"] .dot { background: var(--accent-ink); }
+@keyframes pulse { 50% { opacity: .35; } }
+.stage { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 16px; }
+@media (max-width: 980px) { .stage { grid-template-columns: 1fr; } }
+.view { position: relative; border-radius: var(--r-lg); overflow: hidden; aspect-ratio: 16 / 10; max-width: 100%; background: #9fd3ee; box-shadow: inset 0 0 0 1px var(--glass-edge); }
+.view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.hud { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 8px; pointer-events: none; }
+.hud .pill { font: 500 12.5px/1 var(--f-mono); font-variant-numeric: tabular-nums; color: #f3fbfd; padding: 8px 11px; border-radius: var(--r-pill);
+  background: rgba(8,22,36,0.42); border: 1px solid rgba(255,255,255,0.28); -webkit-backdrop-filter: blur(10px) saturate(160%); backdrop-filter: blur(10px) saturate(160%); }
+.progress { position: absolute; left: 12px; right: 12px; bottom: 12px; height: 8px; border-radius: 99px; background: rgba(8,22,36,0.35); border: 1px solid rgba(255,255,255,0.3); overflow: hidden; }
+.progress i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #3cc7c2, #f2b544); border-radius: inherit; transition: width .15s linear; }
+.flash { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(255,60,60,0.38); color: #fff; font: 700 clamp(18px, 3vw, 28px)/1.2 var(--f-display); text-align: center; padding: 16px; pointer-events: none; }
+.finish { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(6,18,30,0.42); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.finish-card { display: grid; gap: 12px; justify-items: center; text-align: center; padding: 22px 26px; color: #f3fbfd; border-radius: var(--r-lg);
+  background: rgba(10,30,46,0.55); border: 1px solid rgba(255,255,255,0.3); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4); }
+.finish-card strong { font: 700 clamp(22px, 3.4vw, 34px)/1.1 var(--f-display); }
+.finish-card .btn { color: #04211f; background: #3cc7c2; border-color: transparent; }
+
+.signals { display: grid; gap: 12px; align-content: start; }
+.plot { padding: 12px 14px 10px; border-radius: var(--r-lg); background: var(--glass); border: 1px solid var(--glass-edge); display: grid; gap: 6px; }
+.plot-head { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--ink-2); }
+.plot-head b { color: var(--ink); font-weight: 600; }
+.plot canvas { width: 100%; height: 118px; display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 400 12px/1.3 var(--f-mono); color: var(--ink-3); }
+.legend i { display: inline-block; width: 14px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
+.readouts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.readout { padding: 10px 12px; border-radius: var(--r-md); background: var(--glass); border: 1px solid var(--glass-edge); display: grid; gap: 2px; min-width: 0; }
+.readout span { font-size: 11.5px; color: var(--ink-3); letter-spacing: 0.04em; text-transform: uppercase; }
+.readout b { font: 600 19px/1.15 var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 520px) { .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.calib { font-size: 13px; color: var(--ink-2); display: flex; align-items: center; gap: 10px; min-height: 22px; }
+.calib .bar { flex: 1; height: 6px; border-radius: 99px; background: var(--glass-2); overflow: hidden; }
+.calib .bar i { display: block; height: 100%; width: 0; background: var(--amber); border-radius: inherit; }
+
+.controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: stretch; }
+@media (max-width: 980px) { .controls { grid-template-columns: 1fr; } }
+.ctl-groups { display: grid; gap: 14px; padding: 16px; border-radius: var(--r-lg); background: var(--glass); border: 1px solid var(--glass-edge); min-width: 0; }
+.ctl { display: grid; gap: 8px; min-width: 0; }
+.ctl-label { font: 500 12px/1.2 var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); display: flex; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
+.seg { position: relative; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 20px; background: var(--glass); border: 1px solid var(--glass-edge); }
+.seg button { position: relative; z-index: 1; flex: 1 1 auto; border: 0; background: transparent; color: var(--ink-2); font: 500 14px/1.15 var(--f-body); padding: 10px 14px; border-radius: 16px; cursor: pointer; transition: color .3s; display: grid; gap: 2px; justify-items: center; }
+.seg button small { font: 400 11px/1.1 var(--f-mono); color: var(--ink-3); transition: color .3s; }
+.seg button[aria-pressed="true"] { color: var(--accent-ink); }
+.seg button[aria-pressed="true"] small { color: var(--accent-ink); opacity: .8; }
+.seg button:disabled { opacity: .4; cursor: not-allowed; }
+.seg-ind { position: absolute; z-index: 0; top: 0; left: 0; border-radius: 16px; background: var(--accent); box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 8px 20px -8px var(--accent);
+  transition: transform .55s cubic-bezier(.34,1.56,.64,1), width .55s cubic-bezier(.34,1.56,.64,1), height .55s cubic-bezier(.34,1.56,.64,1), border-radius .4s; }
+.seg-ind.morph { border-radius: 40% 60% 55% 45% / 60% 50% 50% 40%; }
+.toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font: 500 14px/1 var(--f-body); color: var(--ink-2); padding: 10px 14px; border-radius: var(--r-pill); background: var(--glass); border: 1px solid var(--glass-edge); cursor: pointer; transition: background .25s, color .25s, transform .35s cubic-bezier(.34,1.56,.64,1); }
+.toggle::before { content: ""; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid currentColor; }
+.toggle[aria-pressed="true"] { color: var(--ink); background: var(--glass-2); }
+.toggle[aria-pressed="true"]::before { background: var(--amber); border-color: var(--amber); }
+.toggle:active { transform: scale(.95); }
+.toggle:disabled { opacity: .45; cursor: not-allowed; }
+.range { display: flex; align-items: center; gap: 12px; }
+.range input { flex: 1; accent-color: var(--accent); min-width: 0; }
+.range output { font: 500 14px/1 var(--f-mono); min-width: 7ch; text-align: right; }
+
+.flexpad { display: grid; gap: 10px; justify-items: center; align-content: center; padding: 18px 22px; border-radius: var(--r-lg); background: var(--glass); border: 1px solid var(--glass-edge); min-width: 230px; }
+.flexbtn { position: relative; width: 150px; height: 150px; border-radius: 50%; border: 1px solid var(--glass-edge); cursor: pointer; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
+  background: radial-gradient(70% 70% at 30% 25%, var(--glass-2), var(--glass)); color: var(--ink); box-shadow: inset 0 2px 0 var(--glass-hi), inset 0 -12px 30px -18px var(--accent), 0 20px 40px -20px var(--shadow);
+  transition: transform .4s cubic-bezier(.34,1.56,.64,1); font: 600 15px/1.2 var(--f-display); }
+.flexbtn:active, .flexbtn.held { transform: scale(0.94); }
+.flexbtn .fill { position: absolute; left: -10%; right: -10%; bottom: 0; height: 0%; background: linear-gradient(180deg, var(--accent), var(--blob-1)); opacity: .85;
+  border-radius: 45% 55% 0 0 / 18% 22% 0 0; animation: wobble 2.4s ease-in-out infinite; }
+@keyframes wobble { 50% { border-radius: 55% 45% 0 0 / 24% 16% 0 0; } }
+.flexbtn span { position: relative; z-index: 1; display: grid; gap: 4px; }
+.flexbtn span small { font: 400 11.5px/1.2 var(--f-mono); color: var(--ink-2); }
+.flexbtn.held span small { color: var(--ink); }
+.flexpad .hint { font-size: 13px; color: var(--ink-3); text-align: center; max-width: 24ch; }
+.flexpad .sub { display: flex; gap: 8px; }
+.flexpad .btn { padding: 10px 16px; font-size: 14px; }
+
+/* ---------- how it works ---------- */
+.steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; counter-reset: step; }
+.step { padding: 22px; display: grid; gap: 10px; align-content: start; }
+.step .num { font: 500 12px/1 var(--f-mono); color: var(--accent); letter-spacing: .12em; }
+.step p { color: var(--ink-2); font-size: 15px; }
+.step .formula { font-family: var(--f-mono); font-size: 13.5px; color: var(--ink); background: var(--glass); border: 1px solid var(--glass-edge); padding: 8px 10px; border-radius: 12px; overflow-x: auto; white-space: nowrap; }
+@media (max-width: 980px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .steps { grid-template-columns: 1fr; } }
+
+/* ---------- results ---------- */
+.results { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: 16px; }
+@media (max-width: 900px) { .results { grid-template-columns: 1fr; } }
+.chart { padding: 22px; display: grid; gap: 18px; }
+.bars { display: grid; gap: 14px; }
+.bar-row { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr) 4.2rem; align-items: center; gap: 12px; }
+.bar-row .who { display: grid; gap: 1px; font-size: 14px; font-weight: 600; }
+.bar-row .who small { font: 400 12px/1.2 var(--f-body); color: var(--ink-3); }
+.track { height: 30px; border-radius: 12px; background: var(--glass); border: 1px solid var(--glass-edge); overflow: hidden; position: relative; }
+.track i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 11px; background: linear-gradient(90deg, var(--blob-4), var(--plot-raw)); transition: width .7s cubic-bezier(.34,1.3,.64,1); }
+.bar-row.best .track i { background: linear-gradient(90deg, var(--accent), var(--amber)); }
+.bar-row .val { font: 600 15px/1 var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.bar-row .tag { font: 500 11px/1 var(--f-mono); color: var(--accent); margin-left: 6px; }
+@media (max-width: 520px) { .bar-row { grid-template-columns: 6.6rem minmax(0, 1fr) 3.6rem; gap: 8px; } }
+.metric-note { font-size: 14px; color: var(--ink-2); }
+.verdict { padding: 22px; display: grid; gap: 14px; align-content: start; }
+.verdict .big { font: 700 clamp(2.6rem, 6vw, 3.6rem)/1 var(--f-display); letter-spacing: -0.03em; }
+.verdict p { color: var(--ink-2); font-size: 15px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; }
+.kv dt { color: var(--ink-3); } .kv dd { margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- real game ---------- */
+.media { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .media { grid-template-columns: 1fr; } }
+.frame { padding: 10px; display: grid; gap: 10px; }
+.frame img { width: 100%; height: auto; display: block; border-radius: 20px; }
+.frame figcaption { font-size: 13.5px; color: var(--ink-2); padding: 0 6px 4px; }
+.runbox { padding: 22px; display: grid; gap: 12px; }
+.runbox ol { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; color: var(--ink-2); }
+.runbox code { font-family: var(--f-mono); font-size: 13px; background: var(--glass); border: 1px solid var(--glass-edge); padding: 2px 6px; border-radius: 6px; color: var(--ink); overflow-wrap: anywhere; }
+
+/* ---------- team ---------- */
+.team { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.member { padding: 22px; display: grid; gap: 10px; align-content: start; }
+.member .avatar { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font: 600 18px/1 var(--f-display); color: var(--accent-ink); background: linear-gradient(140deg, var(--accent), var(--blob-2)); }
+.member p { font-size: 14.5px; color: var(--ink-2); }
+.member .role { font: 500 12px/1.3 var(--f-mono); color: var(--accent); }
+@media (max-width: 980px) { .team { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .team { grid-template-columns: 1fr; } }
+
+footer { padding-block: 32px 48px; color: var(--ink-3); font-size: 14px; }
+.foot { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; padding: 18px 22px; border-radius: var(--r-lg); }
+.foot nav { display: flex; gap: 16px; flex-wrap: wrap; }
+.foot a { color: var(--ink-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .blob, .flexbtn .fill, .chip .dot { animation: none !important; }
+  .seg-ind, .track i, .btn, .toggle, .flexbtn { transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+<div class="liquid" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
+
+<header class="nav wrap">
+  <div class="nav-in glass">
+    <a class="brand" href="#top" aria-label="EMG Walking Control, back to top">
+      <svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="12" fill="none" stroke="currentColor" stroke-opacity=".35"/><path d="M3 14h4l2-6 3 12 3-15 3 11 2-2h3" fill="none" stroke="#3cc7c2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      EMG Walking Control
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#how">How it works</a><a href="#results">Results</a><a href="#game">Unity game</a><a href="#team">Team</a>
+      <a class="cta" href="#prototype">Try it</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <div class="hero-copy">
+      <span class="eyebrow">SSRP Project 9 · Real-time biosignal processing</span>
+      <h1>Every <span class="burst">calf burst</span> is a stride.</h1>
+      <p class="lead">Surface EMG from the calf muscle is filtered in real time and streamed to a Unity game, where each muscle burst moves the character one stride past swinging hammers. The prototype below runs the same filters and step detector in your browser.</p>
+      <div class="btn-row">
+        <a class="btn primary" href="#prototype">Try the prototype</a>
+        <a class="btn" href="#game">See the Unity game</a>
+        <a class="btn needs-pdf" href="Project9_Report.pdf">Read the report (PDF)</a>
+      </div>
+    </div>
+    <div class="spec glass" aria-label="System at a glance">
+      <div class="spec-row"><span>Signal</span><span>calf EMG, channel 1</span></div>
+      <div class="spec-row"><span>Sampling rate</span><span>1000 Hz</span></div>
+      <div class="spec-row"><span>Filter in the game</span><span>TKEO</span></div>
+      <div class="spec-row"><span>Step detection F1</span><span>0.97</span></div>
+      <div class="spec-row"><span>Envelope lag</span><span>84 ms</span></div>
+      <div class="spec-row"><span>One stride</span><span>1.4 m</span></div>
+      <div class="spec-row"><span>Course</span><span>50 m, 3 hammers</span></div>
+    </div>
+  </div>
+
+  <!-- ================= PROTOTYPE ================= -->
+  <section id="prototype" class="wrap" style="padding-top: 20px;">
+    <div class="console glass">
+      <div class="console-head">
+        <h2>Interactive prototype</h2>
+        <span class="chip" id="stateChip" data-state="cal"><span class="dot"></span><span id="stateText">Calibrating</span></span>
+        <span class="chip" id="techChip">TKEO · Prashant</span>
+      </div>
+
+      <div class="stage">
+        <div class="view" id="view">
+          <canvas id="game" aria-label="Game view: the walker on a 50 metre course with three swinging hammers"></canvas>
+          <div class="hud">
+            <span class="pill" id="hudDist">0.0 / 50 m</span>
+            <span class="pill" id="hudSteps">0 strides</span>
+            <span class="pill" id="hudHits">0 hits</span>
+            <span class="pill" id="hudTime">0.0 s</span>
+          </div>
+          <div class="progress" aria-hidden="true"><i id="hudBar"></i></div>
+          <div class="flash" id="flash" hidden>Hit by a hammer: back to the start</div>
+          <div class="finish" id="finish" hidden>
+            <div class="finish-card">
+              <span class="eyebrow" style="color:#3cc7c2">Finish</span>
+              <strong id="finishText">50 m in 0.0 s</strong>
+              <span id="finishSub" class="mono" style="font-size:13px; opacity:.85"></span>
+              <span id="finishAuto" class="mono" style="font-size:12px; opacity:.7"></span>
+              <button class="btn" id="againBtn" type="button">Run again</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="signals">
+          <div class="plot">
+            <div class="plot-head"><b>Raw EMG</b><span class="mono" id="rawScale">channel 1 · mV</span></div>
+            <canvas id="rawPlot" aria-label="Raw EMG signal, last 6 seconds"></canvas>
+          </div>
+          <div class="plot">
+            <div class="plot-head"><b>Envelope and step detector</b><span class="mono" id="envScale">µV</span></div>
+            <canvas id="envPlot" aria-label="Filtered envelope with on and off thresholds and detected steps, last 6 seconds"></canvas>
+            <div class="legend"><span><i style="border-color:var(--accent)"></i>envelope</span><span><i style="border-color:var(--amber); border-top-style:dashed"></i>on / off threshold</span><span><i style="border-color:var(--danger)"></i>detected stride</span></div>
+          </div>
+          <div class="calib" id="calib"><span id="calibText">Learning the resting level</span><span class="bar"><i id="calibBar"></i></span></div>
+          <div class="readouts">
+            <div class="readout"><span>Envelope</span><b id="roEnv">–</b></div>
+            <div class="readout"><span>On threshold</span><b id="roThr">–</b></div>
+            <div class="readout"><span>Strides / min</span><b id="roRate">–</b></div>
+            <div class="readout"><span>Steps</span><b id="roSteps">0</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="ctl-groups">
+          <div class="ctl">
+            <div class="ctl-label"><span>Input</span><span id="inputNote">Prashant’s real recording, 56 s, looped</span></div>
+            <div class="seg" id="segInput" role="group" aria-label="Input signal">
+              <span class="seg-ind" aria-hidden="true"></span>
+              <button type="button" data-v="real" aria-pressed="true">Real recording<small>Prashant, 1000 Hz</small></button>
+              <button type="button" data-v="flex" aria-pressed="false">Flex yourself<small>hold button / SPACE</small></button>
+              <button type="button" data-v="auto" aria-pressed="false">Auto-walk<small>synthetic gait</small></button>
+            </div>
+          </div>
+          <div class="ctl">
+            <div class="ctl-label"><span>Filtering technique</span><span>switching restarts calibration</span></div>
+            <div class="seg" id="segTech" role="group" aria-label="Filtering technique">
+              <span class="seg-ind" aria-hidden="true"></span>
+              <button type="button" data-v="KIT" aria-pressed="false">No filter<small>kit 50 ms RMS</small></button>
+              <button type="button" data-v="IIR" aria-pressed="false">IIR chain<small>Akshit</small></button>
+              <button type="button" data-v="ADFIR" aria-pressed="false">FIR + LMS<small>Mehul</small></button>
+              <button type="button" data-v="WAVE" aria-pressed="false">Wavelet<small>Naveen</small></button>
+              <button type="button" data-v="TKEO" aria-pressed="true">TKEO<small>Prashant</small></button>
+            </div>
+          </div>
+          <div class="ctl">
+            <div class="ctl-label"><span>Noise in the synthetic signal</span><span id="noiseNote">the real recording has its own</span></div>
+            <div class="toggles">
+              <button type="button" class="toggle" data-noise="drift" aria-pressed="true">Drift and motion</button>
+              <button type="button" class="toggle" data-noise="hum" aria-pressed="true">50 Hz mains hum</button>
+              <button type="button" class="toggle" data-noise="spikes" aria-pressed="false">Motion spikes</button>
+            </div>
+          </div>
+          <div class="ctl">
+            <div class="ctl-label"><span>Hammers</span><span id="hitNote">on for your own run</span></div>
+            <div class="toggles">
+              <button type="button" class="toggle" id="hitsBtn" aria-pressed="true">A hit sends you back to the start</button>
+            </div>
+          </div>
+          <div class="ctl" id="cadenceCtl" hidden>
+            <div class="ctl-label"><span>Auto-walk cadence</span><span>the walker waits for the hammers</span></div>
+            <div class="range"><input id="cadence" type="range" min="44" max="72" step="1" value="60" aria-label="Cadence in strides per minute"><output id="cadenceOut" for="cadence">60 /min</output></div>
+          </div>
+        </div>
+        <div class="flexpad">
+          <button type="button" class="flexbtn" id="flexBtn" aria-label="Hold to contract the calf muscle"><span class="fill" id="flexFill"></span><span>Hold to flex<small id="flexSmall">or hold SPACE</small></span></button>
+          <p class="hint" id="flexHint">Switch the input to “Flex yourself” to drive the walker with your own bursts.</p>
+          <div class="sub"><button type="button" class="btn" id="resetBtn">Reset run</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= HOW ================= -->
+  <section id="how" class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">How it works</span>
+      <h2>From muscle to movement in four stages</h2>
+      <p class="lead">The prototype above runs the same filters and the same step detector as the Python bridge, line for line, on a course built like the one in the Unity game.</p>
+    </div>
+    <div class="steps">
+      <article class="step glass"><span class="num">STAGE 1</span><h3>Record</h3><p>Two electrodes over the calf (gastrocnemius) of the dominant leg. The BioRadio streams channel 1 at 1000 Hz over Bluetooth.</p></article>
+      <article class="step glass"><span class="num">STAGE 2</span><h3>Filter</h3><p>A 20–450 Hz band-pass and a 50 Hz notch clean the signal; the Teager–Kaiser energy operator and a 3 Hz low-pass give the envelope.</p><div class="formula">ψ[n] = x[n]² − x[n−1]·x[n+1]</div></article>
+      <article class="step glass"><span class="num">STAGE 3</span><h3>Detect</h3><p>Thresholds come from the quietest 30 % of the last 30 s: on at mean + 3 SD, off at mean + 1.5 SD. Each rising edge at least 0.45 s after the last counts as one stride.</p></article>
+      <article class="step glass"><span class="num">STAGE 4</span><h3>Move</h3><p>The Python bridge sends a JSON message over UDP every 50 ms. Unity moves the character 1.4 m per stride; a hammer hit sends it back to the start.</p></article>
+    </div>
+  </section>
+
+  <!-- ================= RESULTS ================= -->
+  <section id="results" class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Results</span>
+      <h2>Four filtering techniques, one benchmark</h2>
+      <p class="lead">Each team member built one technique. All four ran through the same real-time code on synthetic walking EMG with known step times: 4 noise scenarios × 5 random seeds.</p>
+    </div>
+    <div class="results">
+      <div class="chart glass">
+        <div class="seg" id="segMetric" role="group" aria-label="Metric">
+          <span class="seg-ind" aria-hidden="true"></span>
+          <button type="button" data-v="f1" aria-pressed="true">Step F1</button>
+          <button type="button" data-v="fp" aria-pressed="false">False steps</button>
+          <button type="button" data-v="lag" aria-pressed="false">Lag</button>
+          <button type="button" data-v="corr" aria-pressed="false">Fidelity</button>
+          <button type="button" data-v="score" aria-pressed="false">Ranking</button>
+        </div>
+        <p class="metric-note" id="metricNote"></p>
+        <div class="bars" id="bars"></div>
+      </div>
+      <div class="verdict glass">
+        <span class="eyebrow">Selected for the game</span>
+        <div class="big">TKEO</div>
+        <p>Prashant’s Teager–Kaiser energy operator had the best weighted score and still wins when every category counts equally.</p>
+        <dl class="kv"><dt>Step F1</dt><dd>0.97</dd><dt>False steps</dt><dd>2.4 per minute</dd><dt>Envelope lag</dt><dd>84 ms</dd><dt>Weighted score</dt><dd>1.62 (lowest)</dd></dl>
+        <p>On the real recordings, which have no ground-truth step count, all four techniques recover 52–65 strides per minute, so TKEO’s lead comes mainly from the synthetic benchmark.</p>
+        <a class="btn needs-pdf" href="Project9_Report.pdf">Full method in the report</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= REAL GAME ================= -->
+  <section id="game" class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">The Unity game</span>
+      <h2>The real thing, with the BioRadio</h2>
+      <p class="lead">In the full version a Python bridge reads the BioRadio and drives a Unity 6 game with the same pipeline.</p>
+    </div>
+    <div class="media">
+      <figure class="frame glass" style="margin:0"><img src="images/demo.gif" alt="Live demo: EMG electrodes on the calf, the BioRadio in hand, and the character walking down the course on the laptop" loading="lazy" width="560" height="315"><figcaption>Live demo: electrodes on the calf, the BioRadio in hand, the character walking toward the hammers.</figcaption></figure>
+      <div style="display:grid; gap:16px">
+        <figure class="frame glass" style="margin:0"><img src="images/game.png" alt="The game in Unity: the walker at the start of the course, distance markers at 10, 20, 30 and 40 metres and the finish gate" loading="lazy" width="733" height="361"><figcaption>The course in Unity: distance markers, swinging hammers and the finish gate.</figcaption></figure>
+        <div class="runbox glass">
+          <h3>Run it yourself</h3>
+          <ol>
+            <li>Open the <code>unity</code> folder of the repository in Unity Hub with Unity 6 and press Play.</li>
+            <li>Press <code>SPACE</code> for one stride, or replay a recording: <code>python bridge/replay_csv_to_unity.py bridge/sample_recordings/Prashant_clean_walking.csv --mode I</code></li>
+            <li>With a BioRadio, run <code>python bridge/bioradio_unity_bridge_v2.py</code>.</li>
+          </ol>
+          <a class="btn" id="repoBtn" href="#" hidden>Open the repository</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TEAM ================= -->
+  <section id="team" class="wrap">
+    <div class="sec-head"><span class="eyebrow">Team</span><h2>One technique each, one shared part each</h2></div>
+    <div class="team">
+      <article class="member glass"><span class="avatar" aria-hidden="true">A</span><h3>Akshit</h3><span class="role">IIR chain</span><p>Butterworth band-pass, 50 Hz notch, rectification and a 3 Hz low-pass. Also the noise analysis and clean-segment selection.</p></article>
+      <article class="member glass"><span class="avatar" aria-hidden="true">M</span><h3>Mehul</h3><span class="role">FIR + adaptive LMS</span><p>151-tap FIR band-pass, an adaptive canceller that tracks the 50 Hz hum, and a 200 ms moving RMS. Also the real-time BioRadio bridge.</p></article>
+      <article class="member glass"><span class="avatar" aria-hidden="true">N</span><h3>Naveen</h3><span class="role">Wavelet denoising</span><p>db4 wavelet on 512-sample blocks with soft thresholding. Also the synthetic benchmark and the ranking of the four techniques.</p></article>
+      <article class="member glass"><span class="avatar" aria-hidden="true">P</span><h3>Prashant</h3><span class="role">Teager–Kaiser operator</span><p>The energy operator that detected steps best, now driving the game. Also the Unity game: course, hammers and controller.</p></article>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <div class="foot glass">
+    <span>SSRP Project 9 · Real-time EMG signal processing for VR walking control · 2026</span>
+    <nav aria-label="Links"><a class="needs-pdf" href="Project9_Report.pdf">Report (PDF)</a><a id="repoLink" href="#" hidden>Repository</a><a href="#top">Back to top</a></nav>
+  </div>
+</footer>
+
+<script>
+const COEF = {"bp":[[0.5597939753636623,1.1195879507273245,0.5597939753636623,1.0,1.4727072982383067,0.5512194161882683],[1.0,-2.0,1.0,1.0,-1.775225707139887,0.7898310129469704],[1.0,2.0,1.0,1.0,1.703066904412495,0.7912205716038404],[1.0,-2.0,1.0,1.0,-1.894566110555583,0.9097098295426526]],"notch":[[0.9947912376593769,-1.8922053778585424,0.9947912376593768,1.0,-1.8922053778585421,0.9895824753187538]],"lp3":[[8.765554875401463e-05,0.00017531109750802925,8.765554875401463e-05,1.0,-1.9733442497812987,0.9736948719763148]],"fir":[-0.0003395387087865479,0.00028558692752180047,-0.000376412378110864,8.121349215527782e-05,-0.00030646204086921884,-0.00024069943844380183,-0.00016363124497004462,-0.0006335052510253528,-1.7713519138685434e-05,-0.0010052127965325393,2.8706935852964767e-05,-0.001230570892931055,-0.00013073872205519814,-0.0011930382192131617,-0.0005510892424733929,-0.0008469204841152987,-0.001175542529487831,-0.00027002293666946234,-0.0018054158468013537,0.0003304836586044554,-0.0021337901758050463,0.0006827138143745695,-0.0018514970687151528,0.0005759673516204584,-0.0007957335396598812,4.348021161561871e-18,0.0009223547157504136,-0.0007738882726623487,0.0028839739398915025,-0.0012329548445518647,0.004468497961046618,-0.0008026451757910226,0.005085901906609438,0.0008823477527051426,0.004455728628699605,0.003723048147286016,0.002808698833729812,0.007045385170443014,0.0008937503430410847,0.00972502205024565,-0.000261773751634208,0.010550252393661592,0.0002132876333588708,0.00871552192836613,0.0025592782106441305,0.004254382109036748,0.006078886061193684,-0.0017936383051165214,0.009176063926659534,-0.0076134890519171956,0.009804180216211556,-0.011228112201500691,0.006223499950831304,-0.011315388637273828,-0.002181639258399854,-0.007931269577685496,-0.014346041887688933,-0.002828542814138247,-0.02749758473032154,0.0008282142017091469,-0.03776629517570505,-0.0006555171740109793,-0.041303333819059415,-0.010263066151371947,-0.03557508242982412,-0.02906983567540843,-0.02039226035055208,-0.0555253175091157,0.001716541257859216,-0.08551952409042327,0.025979239119340074,-0.11328764306437042,0.04661157898265412,-0.13291757372121973,0.05844617034365463,0.8600206774636276,0.05844617034365463,-0.13291757372121973,0.046611578982654125,-0.11328764306437042,0.025979239119340074,-0.08551952409042328,0.001716541257859216,-0.055525317509115706,-0.02039226035055208,-0.02906983567540843,-0.03557508242982412,-0.01026306615137195,-0.04130333381905942,-0.0006555171740109794,-0.03776629517570506,0.000828214201709147,-0.027497584730321545,-0.0028285428141382476,-0.014346041887688935,-0.007931269577685498,-0.002181639258399855,-0.01131538863727383,0.006223499950831305,-0.011228112201500695,0.009804180216211558,-0.007613489051917197,0.009176063926659535,-0.0017936383051165214,0.006078886061193684,0.0042543821090367485,0.0025592782106441305,0.008715521928366134,0.0002132876333588709,0.010550252393661601,-0.0002617737516342081,0.009725022050245655,0.0008937503430410852,0.007045385170443017,0.0028086988337298123,0.0037230481472860177,0.004455728628699607,0.0008823477527051428,0.005085901906609439,-0.0008026451757910228,0.004468497961046618,-0.001232954844551866,0.002883973939891505,-0.0007738882726623494,0.0009223547157504147,4.3480211615618766e-18,-0.0007957335396598821,0.0005759673516204588,-0.001851497068715154,0.0006827138143745698,-0.0021337901758050476,0.00033048365860445565,-0.0018054158468013537,-0.00027002293666946234,-0.001175542529487831,-0.0008469204841152987,-0.0005510892424733935,-0.0011930382192131637,-0.0001307387220551983,-0.0012305708929310566,2.870693585296478e-05,-0.0010052127965325403,-1.7713519138685444e-05,-0.0006335052510253531,-0.0001636312449700447,-0.00024069943844380183,-0.00030646204086921884,8.121349215527782e-05,-0.000376412378110864,0.00028558692752180047,-0.0003395387087865479]};   // filter coefficients from scipy (butter, iirnotch, firwin), as in bridge/emg_chains.py
+// ---- DSP: browser ports of bridge/emg_chains.py and bridge/emg_realtime.py (fs = 1000 Hz, causal) ----
+const FS = 1000;
+
+class SOS {                      // cascade of second-order sections, direct form II transposed (= scipy sosfilt)
+  constructor(sos) { this.s = sos; this.z = sos.map(() => [0, 0]); }
+  step(x) {
+    for (let i = 0; i < this.s.length; i++) {
+      const c = this.s[i], z = this.z[i];
+      const y = c[0] * x + z[0];
+      z[0] = c[1] * x - c[4] * y + z[1];
+      z[1] = c[2] * x - c[5] * y;
+      x = y;
+    }
+    return x;
+  }
+}
+
+class MovingRMS {                // causal RMS over the last n samples (shorter at start-up, like the Python version)
+  constructor(n) { this.n = n; this.ring = new Float64Array(n); this.i = 0; this.count = 0; this.sum = 0; }
+  step(x) {
+    const sq = x * x;
+    if (this.count >= this.n) this.sum -= this.ring[this.i]; else this.count++;
+    this.ring[this.i] = sq; this.sum += sq; this.i = (this.i + 1) % this.n;
+    return Math.sqrt(Math.max(this.sum, 0) / this.count);
+  }
+}
+
+// --- wavelet (db4, pywt "symmetric" mode) ---
+const DB4_LO = [-0.010597401784997278, 0.032883011666982945, 0.030841381835986965, -0.18703481171888114,
+                -0.02798376941698385, 0.6308807679295904, 0.7148465705525415, 0.23037781330885523];
+const DB4_HI = DB4_LO.map((v, k) => (k % 2 === 0 ? -1 : 1) * DB4_LO[DB4_LO.length - 1 - k]);
+const DB4_RLO = DB4_LO.slice().reverse(), DB4_RHI = DB4_HI.slice().reverse();
+function symIdx(i, N) { while (i < 0 || i >= N) { if (i < 0) i = -i - 1; if (i >= N) i = 2 * N - i - 1; } return i; }
+function dwt(x) {
+  const N = x.length, F = 8, M = Math.floor((N + F - 1) / 2), a = new Float64Array(M), d = new Float64Array(M);
+  for (let o = 0; o < M; o++) {
+    const i = 2 * o + 1; let sa = 0, sd = 0;
+    for (let j = 0; j < F; j++) { const v = x[symIdx(i - j, N)]; sa += DB4_LO[j] * v; sd += DB4_HI[j] * v; }
+    a[o] = sa; d[o] = sd;
+  }
+  return [a, d];
+}
+let IDWT_OFF = 6;                // start of the valid part of the full reconstruction (checked by perfect-reconstruction test)
+function idwt(a, d) {
+  const M = a.length, F = 8, L = 2 * M + F - 1, full = new Float64Array(L);
+  for (let k = 0; k < M; k++) {
+    const p = 2 * k;
+    for (let j = 0; j < F; j++) full[p + j] += DB4_RLO[j] * a[k] + DB4_RHI[j] * d[k];
+  }
+  const n = 2 * M - F + 2;
+  return full.slice(IDWT_OFF, IDWT_OFF + n);
+}
+function wavedec(x, level) { const c = []; let a = x; for (let l = 0; l < level; l++) { const r = dwt(a); c.unshift(r[1]); a = r[0]; } c.unshift(a); return c; }
+function waverec(c) {
+  let a = c[0];
+  for (let i = 1; i < c.length; i++) { const d = c[i]; if (a.length === d.length + 1) a = a.slice(0, d.length); a = idwt(a, d); }
+  return a;
+}
+function soft(arr, t) { return arr.map(v => Math.sign(v) * Math.max(Math.abs(v) - t, 0)); }
+function median(arr) { const s = Array.from(arr).sort((p, q) => p - q), m = s.length >> 1; return s.length % 2 ? s[m] : 0.5 * (s[m - 1] + s[m]); }
+
+// --- the four member techniques + the kit baseline. process(batch) -> envelope (mV) ---
+class KitRMS {                   // mode A: no filter, per-batch DC removal, 50 ms RMS
+  constructor() { this.rms = new MovingRMS(50); }
+  process(x) { let m = 0; for (const v of x) m += v; m /= x.length; return x.map(v => this.rms.step(v - m)); }
+}
+class IIRChain {                 // Akshit
+  constructor(C) { this.bp = new SOS(C.bp); this.nt = new SOS(C.notch); this.lp = new SOS(C.lp3); }
+  process(x) { return x.map(v => Math.max(this.lp.step(Math.abs(this.nt.step(this.bp.step(v)))), 0)); }
+}
+class ADFIRChain {               // Mehul
+  constructor(C) { this.b = C.fir; this.T = C.fir.length; this.h = new Float64Array(this.T); this.hi = 0; this.w1 = 0; this.w2 = 0; this.n = 0; this.mu = 0.01; this.rms = new MovingRMS(200); }
+  process(x) {
+    const out = new Array(x.length), T = this.T;
+    for (let k = 0; k < x.length; k++) {
+      this.h[this.hi] = x[k]; let y = 0;
+      for (let j = 0; j < T; j++) { let idx = this.hi - j; if (idx < 0) idx += T; y += this.b[j] * this.h[idx]; }
+      this.hi = (this.hi + 1) % T;
+      const t = this.n / FS; this.n++;
+      const r1 = Math.sin(2 * Math.PI * 50 * t), r2 = Math.cos(2 * Math.PI * 50 * t);
+      const e = y - (this.w1 * r1 + this.w2 * r2); this.w1 += this.mu * e * r1; this.w2 += this.mu * e * r2;
+      out[k] = this.rms.step(e);
+    }
+    return out;
+  }
+}
+class WaveChain {                // Naveen
+  constructor(C) { this.nt = new SOS(C.notch); this.lp = new SOS(C.lp3); this.buf = []; this.block = 512; this.level = 5; }
+  process(x) {
+    const n = x.length, y = x.map(v => this.nt.step(v));
+    this.buf = this.buf.concat(y); if (this.buf.length > this.block + n) this.buf = this.buf.slice(this.buf.length - (this.block + n));
+    let seg = this.buf; if (seg.length < 64) seg = new Array(64 - seg.length).fill(0).concat(seg);
+    const c = wavedec(Float64Array.from(seg), this.level);
+    c[0] = new Float64Array(c[0].length);                                      // drop the approximation (drift, motion)
+    const thr = median(c[c.length - 1].map(Math.abs)) / 0.6745 * Math.sqrt(2 * Math.log(seg.length));
+    c[c.length - 1] = soft(c[c.length - 1], thr);
+    for (let i = 1; i < c.length - 1; i++) c[i] = soft(c[i], 0.35 * thr);
+    const den = waverec(c).slice(0, seg.length), tail = den.slice(den.length - n);
+    return Array.from(tail, v => Math.max(this.lp.step(Math.abs(v)), 0));
+  }
+}
+class TKEOChain {                // Prashant
+  constructor(C) { this.bp = new SOS(C.bp); this.nt = new SOS(C.notch); this.lp = new SOS(C.lp3); this.p2 = 0; this.p1 = 0; }
+  process(x) {
+    return x.map(v => {
+      const y = this.nt.step(this.bp.step(v));
+      const psi = this.p1 * this.p1 - this.p2 * y;                             // psi[n] = x[n]^2 - x[n-1]x[n+1] (one-sample delay)
+      this.p2 = this.p1; this.p1 = y;
+      return Math.sqrt(Math.max(this.lp.step(Math.abs(psi)), 0));
+    });
+  }
+}
+const CHAIN_CLASSES = { KIT: KitRMS, IIR: IIRChain, ADFIR: ADFIRChain, WAVE: WaveChain, TKEO: TKEOChain };
+
+// --- the bridge's step detector (LiveProcessor.update): thresholds from the quietest 30 % of the last 30 s ---
+class LiveProcessor {
+  constructor(C, tech) { this.chain = tech === "KIT" ? new KitRMS() : new CHAIN_CLASSES[tech](C); this.offset = null;
+    this.buf = []; this.on = null; this.off = null; this.ref = null; this.active = false; this.steps = 0; this.lastStepT = -1e9; this.t = 0; this.warm = 0; }
+  process(x) {
+    if (this.offset === null) { let m = 0; for (const v of x) m += v; this.offset = m / x.length; }
+    const env = this.chain.process(x.map(v => v - this.offset));
+    return env.map(v => Math.max(v, 0));
+  }
+  thresholds() {
+    if (this.buf.length < 500) return;
+    const s = this.buf.slice().sort((p, q) => p - q), k = Math.max(10, Math.floor(0.3 * s.length)), base = s.slice(0, k);
+    const mean = base.reduce((p, q) => p + q, 0) / base.length, sd = Math.sqrt(base.reduce((p, q) => p + (q - mean) ** 2, 0) / base.length);
+    this.on = mean + 3 * sd; this.off = mean + 1.5 * sd;
+    const pos = 0.95 * (s.length - 1), lo = Math.floor(pos), p95 = s[lo] + (s[Math.min(lo + 1, s.length - 1)] - s[lo]) * (pos - lo);
+    this.ref = Math.max(p95, this.on * 1.5);
+  }
+  update(env) {
+    for (let i = 0; i < env.length; i += 10) this.buf.push(env[i]);
+    if (this.buf.length > 3000) this.buf.splice(0, this.buf.length - 3000);
+    this.warm++; if (this.warm % 20 === 0) this.thresholds();
+    const events = [];
+    if (this.on !== null) {
+      for (let i = 0; i < env.length; i++) {
+        this.t += 1 / FS; const prev = this.active;
+        this.active = !prev ? env[i] > this.on : env[i] > this.off;
+        if (this.active && !prev && this.t - this.lastStepT > 0.45) { this.steps++; this.lastStepT = this.t; events.push(i); }
+      }
+    } else this.t += env.length / FS;
+    const cur = env[env.length - 1];
+    const norm = this.on === null ? 0 : Math.min(1, Math.max(0, (cur - this.on) / Math.max(this.ref - this.on, 1e-9)));
+    return { env: cur, norm, active: this.active, steps: this.steps, events, calibrated: this.on !== null };
+  }
+}
+
+// ================= repository link (works on GitHub Pages without editing) =================
+const REPO_URL = "";   // optional: set to https://github.com/<user>/<repo>
+(function () {
+  let url = REPO_URL;
+  if (!url && location.hostname.endsWith(".github.io")) {
+    const user = location.hostname.split(".")[0], repo = location.pathname.split("/").filter(Boolean)[0];
+    url = "https://github.com/" + user + (repo ? "/" + repo : "");
+  }
+  if (url) for (const id of ["repoBtn", "repoLink"]) { const a = document.getElementById(id); a.href = url; a.hidden = false; a.target = "_blank"; a.rel = "noopener"; }
+})();
+
+// the report is published next to the page on GitHub Pages; hide its links where it is not
+fetch("Project9_Report.pdf", { method: "HEAD" }).then(r => { if (!r.ok) throw 0; }).catch(() => document.querySelectorAll(".needs-pdf").forEach(a => a.hidden = true));
+
+// ================= synthetic calf EMG =================
+class EMGSim {
+  constructor() { this.carrier = new SOS(COEF.bp); this.t = 0; this.act = 0; this.mov = 0; this.rw = 0; this.spike = 0; this.held = false; this.cadence = 60;
+    this.noise = { drift: true, hum: true, spikes: false }; this.spare = null; this.k = -1; this.go = true; this.gate = null; }
+  gauss() { if (this.spare !== null) { const s = this.spare; this.spare = null; return s; }
+    let u = 0, v = 0; while (u === 0) u = Math.random(); v = Math.random();
+    const r = Math.sqrt(-2 * Math.log(u)); this.spare = r * Math.sin(2 * Math.PI * v); return r * Math.cos(2 * Math.PI * v); }
+  next(mode) {
+    const dt = 1 / FS; this.t += dt;
+    if (mode === "flex") { const target = this.held ? 1 : 0, tau = target > this.act ? 0.03 : 0.07; this.act += (target - this.act) * dt / tau; }
+    else { const T = 60 / this.cadence, k = Math.floor(this.t / T), ph = (this.t - k * T) / T, d = Math.abs(ph - 0.3), w = 0.17;
+      if (k !== this.k) { this.k = k; this.go = this.gate ? this.gate(T, 0.21 * T + 0.04) : true; }      // the simulated walker may wait for a hammer
+      const amp = 0.8 + 0.4 * (((Math.sin(k * 12.9898) * 43758.5453) % 1 + 1) % 1);
+      this.act = this.go && d < w ? amp * 0.5 * (1 + Math.cos(Math.PI * d / w)) : 0; }
+    this.mov += (this.act - this.mov) * dt / 0.25;
+    let x = 0.055 * this.act * this.carrier.step(this.gauss()) + 0.004 * this.gauss();
+    if (this.noise.drift) { this.rw = 0.99995 * this.rw + 0.0015 * this.gauss(); x += 0.6 * Math.sin(2 * Math.PI * 0.05 * this.t) + this.rw + 0.22 * this.mov; }
+    if (this.noise.hum) x += 0.045 * Math.sin(2 * Math.PI * 50 * this.t + 0.7);
+    if (this.noise.spikes) { if (Math.random() < 0.15 * dt) this.spike = (Math.random() < 0.5 ? -1 : 1) * (0.8 + 1.2 * Math.random()); x += this.spike; this.spike *= Math.exp(-dt / 0.006); }
+    return 4.5 + x;                                   // electrode DC offset, mV
+  }
+}
+
+// ================= the game (port of EmgWalkingController + SwingingHammer) =================
+const HAMMERS = [{ z: 18, period: 5.6 }, { z: 30, period: 4.8 }, { z: 42, period: 4.4 }].map((h, i) => ({ ...h, phase: i * 0.37 }));
+const PIVOT_Y = 7.6, ROD = 5.7, SWING = 50 * Math.PI / 180, COURSE = 50, STRIDE = 1.4, MAX_SPEED = 1.6, ACC = 4;
+class Walk {
+  constructor() { this.clock = 0; this.hitsOn = true; this.pad = 0; this.reset(); }
+  reset() { this.z = 0; this.speed = 0; this.impulse = 0; this.hits = 0; this.frozen = 0; this.flash = 0; this.start = null; this.done = null; this.phase = 0; this.strides = 0; }
+  clone() { return Object.assign(new Walk(), this); }
+  angle(h) { return SWING * Math.sin(2 * Math.PI * (this.clock / h.period + h.phase)); }
+  addSteps(k) { if (this.done !== null || this.clock < this.frozen) return; this.impulse += k * STRIDE; this.strides += k; if (this.start === null) this.start = this.clock; }
+  update(dt) {
+    this.clock += dt;
+    if (this.done !== null) { this.speed = 0; return; }
+    if (this.clock < this.frozen) { this.speed = 0; this.impulse = 0; }       // brief pause after a hit
+    // each stride covers its full 1.4 m: speed up to 1.6 m/s, then brake so the walker stops where the stride ends
+    const target = this.impulse > 0 ? Math.min(MAX_SPEED, Math.sqrt(2 * ACC * this.impulse)) : 0;
+    const d = target - this.speed; this.speed += Math.sign(d) * Math.min(Math.abs(d), ACC * dt);
+    const step = Math.min(this.speed * dt, this.impulse); this.impulse -= step; if (this.impulse <= 1e-4) { this.impulse = 0; this.speed = 0; }
+    this.z += step; this.phase += step / STRIDE * 2 * Math.PI;
+    if (this.hitsOn) for (const h of HAMMERS) {                  // as SwingingHammer.cs: body line y 0.1-1.9 m against the head, radius 0.8 + 0.35 m
+      const a = this.angle(h), hx = ROD * Math.sin(a), hy = PIVOT_Y - ROD * Math.cos(a), dz = h.z - this.z;
+      const k = Math.min(1, Math.max(0, (hy - 0.1) / 1.8)), py = 0.1 + 1.8 * k;
+      if (hx * hx + (hy - py) ** 2 + dz * dz < (1.15 + this.pad) ** 2 && this.clock >= this.frozen) {
+        this.hits++; this.frozen = this.clock + 1.2; this.flash = this.clock + 0.8; this.z = 0; this.speed = 0; this.impulse = 0; this.phase = 0;
+      }
+    }
+    if (this.z >= COURSE) { this.z = COURSE; this.done = this.start === null ? 0 : this.clock - this.start; }
+  }
+  elapsed() { return this.start === null ? 0 : (this.done !== null ? this.done : this.clock - this.start); }
+}
+// The auto-walker plays like a person would: at the start of each gait cycle it looks ahead and skips the burst
+// (stands still) when walking on would put it under a hammer. The real recording cannot do this.
+function planSafe(w, plan, T, lat, mustStop) {
+  const c = w.clone(), dt = 1 / 60, horizon = (plan.length - 1) * T + 1.2, times = []; c.pad = 0.3;   // lat: a step is detected ~0.21 T into its cycle
+  plan.forEach((go, i) => { if (go) times.push(i * T + lat); });
+  for (let t = 0, j = 0; t < horizon; t += dt) { while (j < times.length && t >= times[j]) { c.addSteps(1); j++; }
+    c.update(dt); if (c.hits > w.hits) return false; if (c.done !== null) return true; }
+  return !mustStop || !HAMMERS.some(h => Math.abs(h.z - c.z) < 1.6);                      // do not stop under a hammer
+}
+function paceGate(w) {
+  let waited = 0;
+  return (T, lat) => {
+    if (!w.hitsOn || w.done !== null) return true;
+    if (planSafe(w, [1, 1, 1], T, lat, false) || planSafe(w, [1, 0, 0], T, lat, true)) { waited = 0; return true; }   // walk on, or one stride and wait
+    if (waited < 6 && planSafe(w, [0, 0, 0], T, lat, false)) { waited++; return false; }
+    waited = 0; return true;                                                              // waited too long: take the chance
+  };
+}
+
+// ================= pseudo-3D renderer (camera as in WalkingCourseBuilder: offset 0, 2.2, -4.5) =================
+const TREES = (() => { let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647; const t = [];
+  for (let i = 0; i < 90; i++) { const side = r() < 0.5 ? -1 : 1; t.push({ x: side * (6 + r() * 26), z: -10 + r() * 130, h: 2.8 + r() * 2.6, c: r() }); } return t; })();
+const BUSH = (() => { let s = 99; const r = () => (s = (s * 16807) % 2147483647) / 2147483647; const b = [];
+  for (let i = 0; i < 50; i++) { const side = r() < 0.5 ? -1 : 1; b.push({ x: side * (3.2 + r() * 6), z: -5 + r() * 100, s: 0.35 + r() * 0.5, c: r() }); } return b; })();
+function drawGame(ctx, W, H, g) {
+  const pitch = Math.atan2(1.2, 6.5), cp = Math.cos(pitch), sp = Math.sin(pitch), F = H / 2 / Math.tan(Math.PI / 6);
+  const cam = { y: 3.2, z: g.z - 4.5 };
+  const P = (x, y, z) => { const dy = y - cam.y, dz = z - cam.z, Y = dy * cp + dz * sp, Z = -dy * sp + dz * cp; return Z > 0.3 ? { x: W / 2 + F * x / Z, y: H / 2 - F * Y / Z, s: F / Z, Z } : null; };
+  const horizon = H / 2 - F * Math.tan(pitch);
+  let gr = ctx.createLinearGradient(0, 0, 0, horizon); gr.addColorStop(0, "#6fb6e6"); gr.addColorStop(1, "#cfe9f5"); ctx.fillStyle = gr; ctx.fillRect(0, 0, W, horizon + 1);
+  // distant hills
+  ctx.fillStyle = "#7fb07a"; ctx.beginPath(); ctx.moveTo(0, horizon + 1);
+  for (let x = 0; x <= W; x += W / 40) ctx.lineTo(x, horizon - (Math.sin(x / W * 7 + 1.3) * 0.5 + 0.6) * H * 0.045 - Math.sin(x / W * 17) * H * 0.012);
+  ctx.lineTo(W, horizon + 1); ctx.fill();
+  gr = ctx.createLinearGradient(0, horizon, 0, H); gr.addColorStop(0, "#6aa85e"); gr.addColorStop(1, "#3f8a3b"); ctx.fillStyle = gr; ctx.fillRect(0, horizon, W, H - horizon);
+  const quad = (pts, fill) => { const q = pts.map(p => P(...p)); if (q.some(v => !v)) return; ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(q[0].x, q[0].y); for (const v of q.slice(1)) ctx.lineTo(v.x, v.y); ctx.closePath(); ctx.fill(); };
+  const z0 = Math.max(cam.z + 0.6, -15), z1 = COURSE + 30;
+  quad([[-2, 0, z0], [2, 0, z0], [2, 0, z1], [-2, 0, z1]], "#d6c19c");
+  for (const s of [-1, 1]) quad([[s * 2, 0.01, z0], [s * 2.2, 0.01, z0], [s * 2.2, 0.01, z1], [s * 2, 0.01, z1]], "#eeeeea");
+  if (0.3 > z0) quad([[-2, 0.02, 0.15], [2, 0.02, 0.15], [2, 0.02, 0.45], [-2, 0.02, 0.45]], "#e04a3c");
+  for (let m = 10; m <= COURSE; m += 10) if (m > z0) quad([[-2, 0.02, m - 0.06], [2, 0.02, m - 0.06], [2, 0.02, m + 0.06], [-2, 0.02, m + 0.06]], m === COURSE ? "#f2b544" : "rgba(255,255,255,0.85)");
+  // depth-sorted objects
+  const items = [];
+  for (const t of TREES) items.push({ z: t.z, draw: () => { const b = P(t.x, 0, t.z), top = P(t.x, t.h, t.z); if (!b || !top) return;
+    ctx.fillStyle = "#6b4a2e"; ctx.fillRect(b.x - 0.12 * b.s, top.y, 0.24 * b.s, b.y - top.y);
+    ctx.fillStyle = t.c < 0.5 ? "#3f9a45" : "#2f8a3c"; ctx.beginPath(); ctx.arc(top.x, top.y, 1.25 * top.s, 0, 7); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.12)"; ctx.beginPath(); ctx.arc(top.x - 0.35 * top.s, top.y - 0.4 * top.s, 0.55 * top.s, 0, 7); ctx.fill(); } });
+  for (const b of BUSH) items.push({ z: b.z, draw: () => { const p = P(b.x, b.s * 0.6, b.z); if (!p) return; ctx.fillStyle = b.c < 0.5 ? "#2f7d36" : "#3b8f3f"; ctx.beginPath(); ctx.ellipse(p.x, p.y, b.s * 1.3 * p.s, b.s * 0.75 * p.s, 0, 0, 7); ctx.fill(); } });
+  for (let m = 0; m <= COURSE + 10; m += 10) for (const s of [-1, 1]) items.push({ z: m, draw: () => { const b = P(s * 3.2, 0, m), t = P(s * 3.2, 3.3, m); if (!b || !t) return;
+    ctx.fillStyle = "#3a3f46"; ctx.fillRect(b.x - 0.06 * b.s, t.y, 0.12 * b.s, b.y - t.y); ctx.fillStyle = "#ffe9a3"; ctx.beginPath(); ctx.arc(t.x, t.y, 0.2 * t.s, 0, 7); ctx.fill(); } });
+  for (let m = 10; m <= 40; m += 10) items.push({ z: m, draw: () => { const p = P(2.9, 1.4, m); if (!p) return; ctx.fillStyle = "rgba(255,255,255,0.95)"; ctx.font = `600 ${Math.max(9, 0.7 * p.s)}px Sora, system-ui, sans-serif`; ctx.textAlign = "left"; ctx.fillText(m + " m", p.x, p.y); } });
+  const gate = (z, label, col) => items.push({ z, draw: () => { const hw = 2.9, h = 4.6; const l0 = P(-hw, 0, z), l1 = P(-hw, h, z), r0 = P(hw, 0, z), r1 = P(hw, h, z); if (!l0 || !r0 || !l1 || !r1) return;
+    ctx.fillStyle = col; const w = 0.32 * l0.s; ctx.fillRect(l0.x - w / 2, l1.y, w, l0.y - l1.y); ctx.fillRect(r0.x - w / 2, r1.y, w, r0.y - r1.y); ctx.fillRect(l1.x - w / 2, l1.y - w, r1.x - l1.x + w, w * 1.6);
+    ctx.fillStyle = "#fff"; ctx.font = `700 ${Math.max(10, 0.9 * l1.s)}px Sora, system-ui, sans-serif`; ctx.textAlign = "center"; ctx.fillText(label, (l1.x + r1.x) / 2, l1.y - 1.4 * w); } });
+  gate(0, "START", "#d9473b"); gate(COURSE, "FINISH", "#2ea44f");
+  for (const h of HAMMERS) items.push({ z: h.z, draw: () => { ctx.save();
+    const hw = 4.2, a = g.angle(h), lb = P(-hw, 0, h.z), lt = P(-hw, PIVOT_Y, h.z), rb = P(hw, 0, h.z), rt = P(hw, PIVOT_Y, h.z), pv = P(0, PIVOT_Y, h.z); if (!lb || !rb || !lt || !rt || !pv) { ctx.restore(); return; }
+    ctx.fillStyle = "#2f3640"; const w = 0.45 * lb.s; ctx.fillRect(lb.x - w / 2, lt.y, w, lb.y - lt.y); ctx.fillRect(rb.x - w / 2, rt.y, w, rb.y - rt.y); ctx.fillRect(lt.x, lt.y - 0.3 * lt.s, rt.x - lt.x, 0.45 * lt.s);
+    const ca = Math.cos(a), sa = Math.sin(a), hx = ROD * sa, hy = PIVOT_Y - ROD * ca, head = P(hx, hy, h.z); if (!head) { ctx.restore(); return; }
+    if (!g.hitsOn) ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = "#aab4bf"; ctx.lineWidth = Math.max(1.5, 0.14 * pv.s); ctx.beginPath(); ctx.moveTo(pv.x, pv.y); ctx.lineTo(head.x, head.y); ctx.stroke();
+    const corner = (u, v) => P(hx + u * ca - v * sa, hy + u * sa + v * ca, h.z), poly = (pts, fill) => { if (pts.some(p => !p)) return; ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y); ctx.closePath(); ctx.fill(); };
+    poly([corner(-0.75, -0.5), corner(0.75, -0.5), corner(0.75, 0.5), corner(-0.75, 0.5)], "#2f6fd6");
+    poly([corner(-0.77, -0.14), corner(0.77, -0.14), corner(0.77, 0.14), corner(-0.77, 0.14)], "#e04a3c");
+    ctx.fillStyle = "#1c2430"; ctx.beginPath(); ctx.arc(pv.x, pv.y, 0.25 * pv.s, 0, 7); ctx.fill(); ctx.restore(); } });
+  items.push({ z: g.z, player: true, draw: () => drawWalker(ctx, P, g) });
+  items.sort((p, q) => q.z - p.z || (p.player ? 1 : -1));
+  for (const it of items) if (it.z > cam.z + 0.3) it.draw();
+}
+function drawWalker(ctx, P, g) {
+  const base = P(0, 0, g.z); if (!base) return; const s = base.s, x = base.x, y = base.y, sw = Math.sin(g.phase), moving = Math.min(1, g.speed / 0.6);
+  const breathe = (1 - moving) * Math.sin(g.clock * 2.2) * 0.012;
+  const hipY = y - 0.95 * s, shY = y - (1.48 + breathe) * s, stride = 0.32 * moving;
+  ctx.lineCap = "round"; ctx.strokeStyle = "#dfe9ee";
+  const leg = (side, ph) => { const fy = y - Math.max(0, Math.sin(ph)) * 0.12 * s * moving, fx = x + side * 0.13 * s; ctx.lineWidth = 0.17 * s;
+    ctx.beginPath(); ctx.moveTo(x + side * 0.1 * s, hipY); ctx.lineTo(fx, fy - Math.cos(ph) * stride * 0.25 * s); ctx.stroke(); };
+  leg(-1, g.phase); leg(1, g.phase + Math.PI);
+  ctx.fillStyle = "#eef4f6"; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 0.24 * s, shY, 0.48 * s, hipY - shY + 0.08 * s, 0.14 * s) : ctx.rect(x - 0.24 * s, shY, 0.48 * s, hipY - shY + 0.08 * s); ctx.fill();
+  ctx.fillStyle = "rgba(60,199,194,0.85)"; ctx.fillRect(x - 0.24 * s, hipY - 0.12 * s, 0.48 * s, 0.07 * s);
+  ctx.strokeStyle = "#dfe9ee"; ctx.lineWidth = 0.12 * s;
+  for (const side of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + side * 0.27 * s, shY + 0.08 * s); ctx.lineTo(x + side * 0.33 * s, shY + (0.5 + side * sw * 0.08 * moving) * s); ctx.stroke(); }
+  ctx.fillStyle = "#eef4f6"; ctx.beginPath(); ctx.arc(x, shY - 0.2 * s, 0.16 * s, 0, 7); ctx.fill();
+  ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath(); ctx.ellipse(x, y + 0.02 * s, 0.35 * s, 0.07 * s, 0, 0, 7); ctx.fill();
+}
+
+// ================= app state =================
+const $ = id => document.getElementById(id);
+const app = { input: "real", tech: "TKEO", sim: new EMGSim(), walk: new Walk(), lp: null, real: null, realIdx: 0, pending: [], clock: 0, total: 0,
+  ring: { raw: new Float32Array(6000).fill(NaN), env: new Float32Array(6000), i: 0 }, stepIdx: [], last: null, held: false };
+const TECH_LABEL = { KIT: "No filter · kit RMS", IIR: "IIR chain · Akshit", ADFIR: "FIR + LMS · Mehul", WAVE: "Wavelet · Naveen", TKEO: "TKEO · Prashant" };
+function newProcessor() { app.lp = new LiveProcessor(COEF, app.tech); app.pending = []; app.stepIdx = []; app.last = null; app.calibAt = null; $("techChip").textContent = TECH_LABEL[app.tech]; }
+function resetRun() { app.walk.reset(); $("finish").hidden = true; }
+newProcessor();
+
+function sample() {
+  if (app.input === "real" && app.real) { const v = app.real[app.realIdx]; app.realIdx = (app.realIdx + 1) % app.real.length; return v; }
+  app.sim.held = app.held; return app.sim.next(app.input === "real" ? "auto" : app.input);
+}
+function pump(dt) {
+  app.clock += dt * FS; let n = Math.floor(app.clock); app.clock -= n;
+  for (let k = 0; k < n; k++) {
+    const x = sample(); app.pending.push(x);
+    if (app.pending.length === 50) {
+      const env = app.lp.process(app.pending), st = app.lp.update(env), base = app.total - 49;
+      for (let j = 0; j < 50; j++) { const i = (app.ring.i + j - 49 + 6000 * 2) % 6000; app.ring.env[i] = env[j]; }
+      for (const e of st.events) app.stepIdx.push(base + e);
+      if (st.events.length) app.walk.addSteps(st.events.length);
+      app.last = st; app.pending = [];
+    }
+    app.ring.raw[app.ring.i] = x; app.ring.i = (app.ring.i + 1) % 6000; app.total++;
+  }
+  while (app.stepIdx.length && app.stepIdx[0] < app.total - 30000) app.stepIdx.shift();
+}
+
+// ================= plots =================
+let theme = {};
+function readTheme() { const cs = getComputedStyle(document.documentElement); for (const k of ["accent", "amber", "danger", "plot-grid", "plot-raw", "ink-3", "accent-soft"]) theme[k] = cs.getPropertyValue("--" + k).trim(); }
+readTheme();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => setTimeout(readTheme, 30));
+new MutationObserver(() => setTimeout(readTheme, 30)).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+function fitCanvas(c) { const r = c.getBoundingClientRect(), d = Math.min(window.devicePixelRatio || 1, 2), w = Math.max(1, Math.round(r.width * d)), h = Math.max(1, Math.round(r.height * d));
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } return [w, h, d]; }
+function grid(ctx, W, H, d) { ctx.strokeStyle = theme["plot-grid"]; ctx.lineWidth = 1 * d; ctx.beginPath(); for (let s = 1; s < 6; s++) { const x = Math.round(W * s / 6) + 0.5; ctx.moveTo(x, 0); ctx.lineTo(x, H); } for (let k = 1; k < 4; k++) { const y = Math.round(H * k / 4) + 0.5; ctx.moveTo(0, y); ctx.lineTo(W, y); } ctx.stroke(); }
+function drawRaw() {
+  const c = $("rawPlot"), [W, H, d] = fitCanvas(c), ctx = c.getContext("2d"), R = app.ring, off = app.lp.offset ?? 0; ctx.clearRect(0, 0, W, H); grid(ctx, W, H, d);
+  let lo = Infinity, hi = -Infinity; for (let k = 0; k < 6000; k++) { const v = R.raw[k] - off; if (v < lo) lo = v; if (v > hi) hi = v; }
+  if (!isFinite(lo) || hi - lo < 1e-6) { lo = -0.05; hi = 0.05; } const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+  ctx.strokeStyle = theme["plot-raw"]; ctx.lineWidth = 1 * d; ctx.beginPath();
+  const per = 6000 / W; for (let px = 0; px < W; px++) { let mn = Infinity, mx = -Infinity; const a = Math.floor(px * per), b = Math.floor((px + 1) * per);
+    for (let k = a; k < b; k++) { const v = R.raw[(R.i + k) % 6000] - off; if (v < mn) mn = v; if (v > mx) mx = v; }
+    if (mn === Infinity) continue; ctx.moveTo(px + 0.5, H - (mx - lo) / (hi - lo) * H); ctx.lineTo(px + 0.5, H - (mn - lo) / (hi - lo) * H + 0.5); }
+  ctx.stroke(); $("rawScale").textContent = `channel 1 · ${(hi - lo).toFixed(2)} mV span`;
+}
+function drawEnv() {
+  const c = $("envPlot"), [W, H, d] = fitCanvas(c), ctx = c.getContext("2d"), R = app.ring, lp = app.lp; ctx.clearRect(0, 0, W, H); grid(ctx, W, H, d);
+  let mx = 0; for (let k = 0; k < 6000; k++) if (R.env[k] > mx) mx = R.env[k]; if (lp.ref) mx = Math.max(mx, lp.ref * 1.15); if (mx <= 0) mx = 1e-3; const yv = v => H - 4 * d - v / mx * (H - 10 * d);
+  const t0 = app.total - 6000;
+  ctx.strokeStyle = theme.danger; ctx.lineWidth = 1.5 * d; ctx.beginPath(); for (const s of app.stepIdx) if (s >= t0) { const x = Math.round((s - t0) / 6000 * W) + 0.5; ctx.moveTo(x, 0); ctx.lineTo(x, H); } ctx.stroke();
+  if (lp.on !== null) { ctx.setLineDash([6 * d, 5 * d]); ctx.strokeStyle = theme.amber; ctx.lineWidth = 1.2 * d; ctx.beginPath(); for (const v of [lp.on, lp.off]) { ctx.moveTo(0, yv(v)); ctx.lineTo(W, yv(v)); } ctx.stroke(); ctx.setLineDash([]); }
+  ctx.beginPath(); const per = 6000 / W; for (let px = 0; px < W; px++) { const k = Math.floor(px * per), v = R.env[(R.i + k) % 6000]; px ? ctx.lineTo(px, yv(v)) : ctx.moveTo(px, yv(v)); }
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fillStyle = theme["accent-soft"]; ctx.fill();
+  ctx.beginPath(); for (let px = 0; px < W; px++) { const k = Math.floor(px * per), v = R.env[(R.i + k) % 6000]; px ? ctx.lineTo(px, yv(v)) : ctx.moveTo(px, yv(v)); }
+  ctx.strokeStyle = theme.accent; ctx.lineWidth = 2 * d; ctx.stroke(); $("envScale").textContent = `full scale ${(mx * 1000).toFixed(1)} µV`;
+}
+
+// ================= readouts =================
+function uv(v) { return (v * 1000).toFixed(v * 1000 < 10 ? 2 : 1) + " µV"; }
+function updateReadouts() {
+  const st = app.last, lp = app.lp, w = app.walk;
+  const calib = Math.min(1, lp.buf.length / 500); $("calibBar").style.width = (calib * 100) + "%"; $("calib").hidden = lp.on !== null;
+  $("calibText").textContent = app.input === "flex" ? `Relax your calf: learning the resting level (${Math.max(0, 5 - calib * 5).toFixed(1)} s)` : `Learning the resting level (${Math.max(0, 5 - calib * 5).toFixed(1)} s)`;
+  const chip = $("stateChip"), state = lp.on === null ? "cal" : st && st.active ? "active" : "rest";
+  chip.dataset.state = state; $("stateText").textContent = state === "cal" ? "Calibrating" : state === "active" ? "Burst detected" : "Resting";
+  if (st) { $("roEnv").textContent = uv(st.env); $("roSteps").textContent = st.steps; }
+  $("roThr").textContent = lp.on !== null ? uv(lp.on) : "–";
+  if (lp.on !== null && app.calibAt === null) app.calibAt = app.total;
+  const win = app.calibAt === null ? 0 : Math.min(20000, app.total - app.calibAt), recent = app.stepIdx.filter(s => s > app.total - win).length;
+  $("roRate").textContent = win >= 6000 ? (recent * 60000 / win).toFixed(0) : "–";
+  $("hudDist").textContent = `${w.z.toFixed(1)} / ${COURSE} m`; $("hudSteps").textContent = `${w.strides} strides`; $("hudHits").textContent = `${w.hits} ${w.hits === 1 ? "hit" : "hits"}`;
+  $("hudTime").textContent = `${w.elapsed().toFixed(1)} s`; $("hudBar").style.width = (w.z / COURSE * 100) + "%";
+  $("flash").hidden = !(w.clock < w.flash);
+  if (w.done !== null && $("finish").hidden) { $("finish").hidden = false; app.finishAt = performance.now(); $("finishText").textContent = `50 m in ${w.done.toFixed(1)} s`; $("finishSub").textContent = `${w.strides} strides · ${w.hits} ${w.hits === 1 ? "hammer hit" : "hammer hits"} · ${TECH_LABEL[app.tech]}`; }
+  if (w.done !== null && app.input !== "flex") { const left = 8 - (performance.now() - app.finishAt) / 1000;
+    $("finishAuto").textContent = `next run in ${Math.max(0, Math.ceil(left))} s`; if (left <= 0) resetRun(); } else $("finishAuto").textContent = "";
+  $("flexFill").style.height = (app.input === "flex" ? app.sim.act * 100 : 0) + "%";
+}
+
+// ================= loop =================
+// Quality check: if this device draws fewer than 40 frames a second with the liquid background, switch to lite mode.
+const QUALITY = /[?&](lite|full)\b/.exec(location.search)?.[1];
+if (QUALITY === "lite") document.documentElement.classList.add("lite");
+const fpsProbe = { from: null, frames: 0, done: QUALITY !== undefined };
+let lastT = null;
+function frame(t) {
+  if (!fpsProbe.done && document.visibilityState === "visible") {
+    if (fpsProbe.from === null) fpsProbe.from = t + 1500; else if (t >= fpsProbe.from) fpsProbe.frames++;
+    if (t - fpsProbe.from > 2500) { fpsProbe.done = true; if (fpsProbe.frames / ((t - fpsProbe.from) / 1000) < 40) document.documentElement.classList.add("lite"); }
+  }
+  const dt = lastT === null ? 0 : Math.min(0.25, (t - lastT) / 1000); lastT = t;
+  requestAnimationFrame(frame);                         // schedule first, so one bad frame cannot stop the prototype
+  pump(dt); for (let rem = dt; rem > 1e-9; rem -= 1 / 60) app.walk.update(Math.min(rem, 1 / 60));   // small physics steps even on slow frames
+  try { const gc = $("game"), [W, H] = fitCanvas(gc), ctx = gc.getContext("2d"); ctx.save(); drawGame(ctx, W, H, app.walk); ctx.restore(); }
+  catch (e) { if (!frame.warned) { console.warn(e); frame.warned = true; } }
+  drawRaw(); drawEnv(); updateReadouts();
+}
+requestAnimationFrame(frame);
+
+// ================= controls =================
+function seg(id, onPick) {
+  const el = $(id), ind = el.querySelector(".seg-ind"), btns = [...el.querySelectorAll("button")];
+  const place = (b, anim) => { const r = b.getBoundingClientRect(), p = el.getBoundingClientRect(); if (!anim) ind.style.transition = "none";
+    ind.style.width = r.width + "px"; ind.style.height = r.height + "px"; ind.style.transform = `translate(${r.left - p.left - 1}px, ${r.top - p.top - 1}px)`;
+    if (!anim) { ind.offsetWidth; ind.style.transition = ""; } };
+  const active = () => btns.find(b => b.getAttribute("aria-pressed") === "true");
+  btns.forEach(b => b.addEventListener("click", () => { if (b.disabled || b === active()) return; btns.forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    ind.classList.add("morph"); place(b, true); setTimeout(() => ind.classList.remove("morph"), 320); onPick(b.dataset.v); }));
+  new ResizeObserver(() => place(active(), false)).observe(el); place(active(), false); document.fonts?.ready.then(() => place(active(), false));
+  return { set(v) { const b = btns.find(x => x.dataset.v === v); btns.forEach(x => x.setAttribute("aria-pressed", String(x === b))); place(b, true); } };
+}
+const INPUT_NOTE = { real: "Prashant’s real recording, 56 s, looped", flex: "your own bursts: hold the button or SPACE", auto: "synthetic gait with a stride rhythm" };
+function setInput(v) {
+  app.input = v; $("inputNote").textContent = INPUT_NOTE[v]; $("cadenceCtl").hidden = v !== "auto";
+  const synth = v !== "real"; document.querySelectorAll(".toggle[data-noise]").forEach(b => b.disabled = !synth); $("noiseNote").textContent = synth ? "toggle to see each filter cope" : "the real recording has its own";
+  const flex = v === "flex"; $("flexBtn").disabled = !flex; $("flexBtn").style.opacity = flex ? 1 : 0.5;
+  $("flexHint").textContent = flex ? "Each burst over the on threshold is one 1.4 m stride. Release between strides." : "Switch the input to “Flex yourself” to drive the walker with your own bursts.";
+  app.sim = new EMGSim(); app.sim.cadence = +$("cadence").value; document.querySelectorAll(".toggle[data-noise]").forEach(b => app.sim.noise[b.dataset.noise] = b.getAttribute("aria-pressed") === "true");
+  if (v === "auto") app.sim.gate = paceGate(app.walk);
+  setHits(flex);                                        // the recording and the auto-walk start with hits off: watch first, then play
+  if (flex && userPicked) fb.focus({ preventScroll: true });
+  newProcessor(); resetRun();
+}
+let userPicked = false;
+const segInput = seg("segInput", v => { userPicked = true; setInput(v); userPicked = false; });
+seg("segTech", v => { app.tech = v; newProcessor(); });
+document.querySelectorAll(".toggle[data-noise]").forEach(b => b.addEventListener("click", () => { const on = b.getAttribute("aria-pressed") !== "true"; b.setAttribute("aria-pressed", String(on)); app.sim.noise[b.dataset.noise] = on; }));
+function setHits(on) { app.walk.hitsOn = on; $("hitsBtn").setAttribute("aria-pressed", String(on));
+  $("hitNote").textContent = on ? (app.input === "real" ? "the recording cannot dodge them" : app.input === "auto" ? "the walker times its strides" : "time your bursts between swings") : "hits off: the walker passes through"; }
+$("hitsBtn").addEventListener("click", () => setHits(!app.walk.hitsOn));
+$("cadence").addEventListener("input", e => { app.sim.cadence = +e.target.value; $("cadenceOut").textContent = e.target.value + " /min"; });
+$("resetBtn").addEventListener("click", resetRun); $("againBtn").addEventListener("click", resetRun);
+const fb = $("flexBtn"), hold = on => { if (app.input !== "flex") return; app.held = on; fb.classList.toggle("held", on); };
+fb.addEventListener("pointerdown", e => { e.preventDefault(); fb.setPointerCapture?.(e.pointerId); hold(true); });
+for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) fb.addEventListener(ev, () => hold(false));
+fb.addEventListener("keydown", e => { if (e.code === "Enter") { e.preventDefault(); hold(true); } });
+fb.addEventListener("keyup", e => { if (e.code === "Enter") hold(false); });
+addEventListener("keydown", e => { if (e.code !== "Space" || app.input !== "flex") return; const t = e.target; if (t !== fb && /^(BUTTON|INPUT|SELECT|TEXTAREA|A)$/.test(t.tagName)) return; e.preventDefault(); if (!e.repeat) hold(true); });
+addEventListener("keyup", e => { if (e.code === "Space") hold(false); });
+addEventListener("blur", () => hold(false));
+setInput("real");
+
+// ================= the real recording =================
+fetch("data/prashant_walk.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(a => {
+  app.real = Float64Array.from(a, v => v / 1e6); if (app.input === "real") { newProcessor(); resetRun(); }
+}).catch(() => { $("segInput").querySelector('[data-v="real"]').disabled = true; segInput.set("auto"); setInput("auto");
+  INPUT_NOTE.real = "needs the page served online"; });
+
+// ================= results chart =================
+const RES = [
+  { who: "IIR chain", by: "Akshit", f1: 0.67, fp: 21.4, lag: 84, corr: 0.95, score: 2.25 },
+  { who: "FIR + LMS", by: "Mehul", f1: 0.84, fp: 8.4, lag: 174, corr: 0.81, score: 2.75 },
+  { who: "Wavelet", by: "Naveen", f1: 0.41, fp: 34.6, lag: 70, corr: 0.91, score: 2.75 },
+  { who: "TKEO", by: "Prashant", f1: 0.97, fp: 2.4, lag: 84, corr: 0.88, score: 1.62 } ];
+const METRIC = {
+  f1: { note: "Step-detection F1 on the synthetic benchmark. Higher is better.", fmt: v => v.toFixed(2), max: 1, better: "high" },
+  fp: { note: "False steps per minute. Lower is better.", fmt: v => v.toFixed(1), max: 40, better: "low" },
+  lag: { note: "Envelope lag in milliseconds. Lower is better: you feel it in the game.", fmt: v => v + " ms", max: 200, better: "low" },
+  corr: { note: "Correlation of the envelope with the true muscle amplitude. Higher is better.", fmt: v => v.toFixed(2), max: 1, better: "high" },
+  score: { note: "Weighted rank: detection 50 %, responsiveness 25 %, fidelity 25 %. Lower is better.", fmt: v => v.toFixed(2), max: 3, better: "low" } };
+function drawBars(m) {
+  const M = METRIC[m], vals = RES.map(r => r[m]), best = M.better === "high" ? Math.max(...vals) : Math.min(...vals);
+  $("metricNote").textContent = M.note;
+  $("bars").innerHTML = RES.map(r => `<div class="bar-row${r[m] === best ? " best" : ""}"><span class="who">${r.who}<small>${r.by}</small></span><span class="track"><i style="width:0%"></i></span><span class="val">${M.fmt(r[m])}${r[m] === best ? '<span class="tag">best</span>' : ""}</span></div>`).join("");
+  requestAnimationFrame(() => [...$("bars").querySelectorAll(".track i")].forEach((el, k) => el.style.width = Math.max(3, RES[k][m] / M.max * 100) + "%"));
+}
+seg("segMetric", drawBars); drawBars("f1");
+</script>
+</body>
+</html>
