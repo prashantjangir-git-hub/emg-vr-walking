@@ -85,13 +85,18 @@ a { color: inherit; }
 .brand { display: flex; align-items: center; gap: 10px; font: 600 17px/1 var(--f-display); text-decoration: none; white-space: nowrap; }
 .brand-ball { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none; background: radial-gradient(circle at 32% 28%, #ffd9cb, var(--coral) 70%); box-shadow: var(--bubble); }
 .brand-ball svg { width: 20px; height: 20px; }
-.nav-links { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
-.nav-links a { text-decoration: none; font: 700 14px/1 var(--f-body); color: var(--ink-2); padding: 11px 15px; border-radius: var(--r-pill); transition: background .25s, color .25s, box-shadow .25s; }
+.nav-links { position: relative; display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+.nav-links a { position: relative; z-index: 1; text-decoration: none; font: 700 14px/1 var(--f-body); color: var(--ink-2); padding: 11px 15px; border-radius: var(--r-pill); transition: background .25s, color .25s, box-shadow .25s; }
 .nav-links a:hover { background: var(--well); box-shadow: var(--press); color: var(--ink); }
-.nav-links a.cta { background: var(--accent); color: var(--accent-ink); box-shadow: var(--bubble); }
-@media (max-width: 720px) { .nav-links a:not(.cta) { display: none; } }
+.nav-links a.active { color: var(--accent-ink); }
+.nav-links a.active:hover { background: transparent; box-shadow: none; color: var(--accent-ink); }
+/* the clay bubble that glides to the section you are reading */
+.nav-ind { position: absolute; z-index: 0; top: 0; left: 0; width: 0; height: 0; border-radius: var(--r-pill); background: var(--accent); box-shadow: var(--bubble); opacity: 0; pointer-events: none;
+  transition: transform .6s cubic-bezier(.34,1.45,.64,1), width .6s cubic-bezier(.34,1.45,.64,1), height .3s ease, opacity .35s ease; }
+.nav-ind.on { opacity: 1; }
+@media (max-width: 720px) { .nav-links { display: none; } .theme-toggle { margin-left: auto; } }
 .nav-links a { white-space: nowrap; }
-@media (max-width: 480px) { .nav-links a.cta { display: none; } .nav-in { justify-content: space-between; } .brand { font-size: 16px; } }
+@media (max-width: 480px) { .brand { font-size: 16px; } }
 .theme-toggle { position: relative; width: 76px; height: 42px; flex: none; border: 0; padding: 0; border-radius: var(--r-pill); cursor: pointer; background: var(--well); box-shadow: var(--press); }
 .theme-toggle .track-icon { position: absolute; top: 50%; width: 16px; height: 16px; margin-top: -8px; color: var(--ink-3); opacity: .7; }
 .theme-toggle .track-icon.sun { left: 12px; } .theme-toggle .track-icon.moon { right: 12px; }
@@ -284,7 +289,7 @@ footer { padding-block: 32px 48px; color: var(--ink-3); font-size: 14px; font-we
 
 @media (prefers-reduced-motion: reduce) {
   .pebble, .flexbtn .fill, .chip .dot { animation: none !important; }
-  .seg-ind, .track i, .btn, .toggle, .flexbtn, .theme-toggle .knob { transition: none !important; }
+  .seg-ind, .track i, .btn, .toggle, .flexbtn, .theme-toggle .knob, .nav-ind { transition: none !important; }
   .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
 }
 </style>
@@ -298,8 +303,8 @@ footer { padding-block: 32px 48px; color: var(--ink-3); font-size: 14px; font-we
       EMG Walking Control
     </a>
     <nav class="nav-links" aria-label="Sections">
-      <a href="#how">How it works</a><a href="#results">Results</a><a href="#game">Unity game</a><a href="#team">Team</a>
-      <a class="cta" href="#prototype">Try it</a>
+      <span class="nav-ind" aria-hidden="true"></span>
+      <a href="#prototype">Prototype</a><a href="#how">How it works</a><a href="#results">Results</a><a href="#unity">Unity game</a><a href="#team">Team</a>
     </nav>
     <button type="button" class="theme-toggle" id="themeBtn" role="switch" aria-checked="false" aria-label="Dark mode">
       <span class="track-icon sun" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg></span><span class="track-icon moon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span>
@@ -316,7 +321,7 @@ footer { padding-block: 32px 48px; color: var(--ink-3); font-size: 14px; font-we
       <p class="lead">Surface EMG from the calf muscle is filtered in real time and streamed to a Unity game, where each muscle burst moves the character one stride past swinging hammers. The prototype below runs the same filters and step detector in your browser.</p>
       <div class="btn-row">
         <a class="btn primary" href="#prototype">Try the prototype</a>
-        <a class="btn" href="#game">See the Unity game</a>
+        <a class="btn" href="#unity">See the Unity game</a>
         <a class="btn needs-pdf" href="Project9_Report.pdf">Read the report (PDF)</a>
       </div>
     </div>
@@ -482,7 +487,7 @@ footer { padding-block: 32px 48px; color: var(--ink-3); font-size: 14px; font-we
   </section>
 
   <!-- ================= REAL GAME ================= -->
-  <section id="game" class="wrap">
+  <section id="unity" class="wrap">
     <div class="sec-head">
       <span class="eyebrow">The Unity game</span>
       <h2>The real thing, with the BioRadio</h2>
@@ -1036,7 +1041,29 @@ const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
     e.preventDefault(); go(el === document.getElementById("top") ? 0 : el.getBoundingClientRect().top + root.scrollTop - 76);
   });
 })();
-// 3) the nav bar puffs up a little once the page scrolls
+// 3) highlight the nav tile of the section on screen; the bubble glides between tiles
+(function scrollSpy() {
+  const links = [...document.querySelectorAll(".nav-links a[href^='#']")], ind = document.querySelector(".nav-ind");
+  const secs = links.map(a => document.getElementById(a.getAttribute("href").slice(1)));
+  let current = null, queued = false;
+  function place(a) {
+    if (!a) { ind.classList.remove("on"); return; }
+    ind.style.width = a.offsetWidth + "px"; ind.style.height = a.offsetHeight + "px";
+    ind.style.transform = `translate(${a.offsetLeft}px, ${a.offsetTop}px)`; ind.classList.add("on");
+  }
+  function update() {
+    queued = false;
+    const line = innerHeight * 0.38, bottom = scrollY + innerHeight >= document.documentElement.scrollHeight - 4;
+    let idx = -1; secs.forEach((sec, i) => { if (sec && sec.getBoundingClientRect().top <= line) idx = i; });
+    if (bottom) idx = secs.length - 1;
+    const a = idx >= 0 ? links[idx] : null;
+    if (a !== current) { links.forEach(l => { l.classList.toggle("active", l === a); if (l === a) l.setAttribute("aria-current", "true"); else l.removeAttribute("aria-current"); }); current = a; }
+    place(a);
+  }
+  addEventListener("scroll", () => { if (!queued) { queued = true; requestAnimationFrame(update); } }, { passive: true });
+  addEventListener("resize", update); document.fonts?.ready.then(update); update();
+})();
+// 4) the nav bar puffs up a little once the page scrolls
 (function navLift() { const nav = document.querySelector(".nav"), f = () => nav.classList.toggle("scrolled", scrollY > 8); addEventListener("scroll", f, { passive: true }); f(); })();
 </script>
 </body>
