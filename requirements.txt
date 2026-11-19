@@ -1,0 +1,10 @@
+# Offline analysis, report and the replay tool
+numpy
+scipy
+pandas
+matplotlib
+PyWavelets
+reportlab
+pypdf
+Pillow
+# Live BioRadio bridge only (Windows): pip install pythonnet
