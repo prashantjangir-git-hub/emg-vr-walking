@@ -1,0 +1,28 @@
+# Normalise line endings for text files
+* text=auto
+
+# Language bar on GitHub (Linguist)
+# The website is real code: count it (docs/ is skipped as "documentation" by default)
+docs/index.html linguist-documentation=false linguist-detectable=true
+# Python and C# are the project's code
+*.py linguist-detectable=true
+*.cs linguist-detectable=true
+# Unity's generated settings and scene files are not hand-written code
+unity/ProjectSettings/** linguist-generated=true
+unity/Packages/** linguist-generated=true
+*.meta linguist-generated=true
+*.unity linguist-generated=true
+*.asset linguist-generated=true
+*.prefab linguist-generated=true
+*.mat linguist-generated=true
+# Recordings and data are data, not code
+*.csv linguist-generated=true
+*.json linguist-generated=true
+
+# Binary files: never diff or change line endings
+*.png binary
+*.gif binary
+*.jpg binary
+*.pdf binary
+*.fbx binary
+*.dll binary
