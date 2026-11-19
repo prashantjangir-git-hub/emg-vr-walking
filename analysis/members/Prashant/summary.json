@@ -1,0 +1,60 @@
+{
+ "person": "Prashant",
+ "technique": "TKEO",
+ "title": "Teager-Kaiser energy operator + low-pass",
+ "recording_s": 101.5,
+ "good_s": 56.0,
+ "good_pct": 55.2,
+ "own": {
+  "burst_to_baseline": 2.525,
+  "strides_per_min": 63.214,
+  "stride_CV": 0.212,
+  "rhythm_score": 0.544,
+  "mains_residual_pct": 2.518,
+  "good_seconds": 56.0
+ },
+ "baseline": {
+  "burst_to_baseline": 9.906,
+  "strides_per_min": 9.643,
+  "stride_CV": 0.076,
+  "rhythm_score": 0.784,
+  "mains_residual_pct": 52.392,
+  "good_seconds": 56.0
+ },
+ "synthetic_mean": {
+  "S1 typical": {
+   "corr": 0.943,
+   "lag_ms": 85.0,
+   "F1": 0.986,
+   "FP_per_min": 0.889
+  },
+  "S2 strong 50 Hz hum": {
+   "corr": 0.948,
+   "lag_ms": 85.0,
+   "F1": 0.986,
+   "FP_per_min": 0.889
+  },
+  "S3 motion spikes": {
+   "corr": 0.818,
+   "lag_ms": 83.0,
+   "F1": 0.905,
+   "FP_per_min": 6.889
+  },
+  "S4 weak muscle": {
+   "corr": 0.803,
+   "lag_ms": 84.0,
+   "F1": 0.986,
+   "FP_per_min": 0.889
+  }
+ },
+ "synthetic_overall": {
+  "corr": 0.878,
+  "lag_ms": 84.25,
+  "F1": 0.966,
+  "precision": 0.96,
+  "recall": 0.973,
+  "FP_per_min": 2.389,
+  "delay_ms": 30.25,
+  "realtime_factor": 0.002
+ }
+}

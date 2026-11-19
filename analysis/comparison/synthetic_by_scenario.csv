@@ -1,0 +1,17 @@
+technique,scenario,F1,corr,lag_ms,FP_per_min,delay_ms
+ADFIR,S1 typical,0.868,0.911,175.0,7.778,36.9
+ADFIR,S2 strong 50 Hz hum,0.853,0.911,175.0,9.778,44.4
+ADFIR,S3 motion spikes,0.835,0.717,173.0,9.778,38.7
+ADFIR,S4 weak muscle,0.817,0.693,175.0,6.222,65.4
+IIR,S1 typical,0.704,0.978,84.0,18.889,-40.0
+IIR,S2 strong 50 Hz hum,0.618,0.976,84.0,23.778,-31.4
+IIR,S3 motion spikes,0.696,0.923,83.0,19.556,-38.0
+IIR,S4 weak muscle,0.644,0.915,84.0,23.333,-23.6
+TKEO,S1 typical,0.986,0.943,85.0,0.889,32.9
+TKEO,S2 strong 50 Hz hum,0.986,0.948,85.0,0.889,22.3
+TKEO,S3 motion spikes,0.905,0.818,83.0,6.889,33.9
+TKEO,S4 weak muscle,0.986,0.803,84.0,0.889,31.9
+WAVE,S1 typical,0.327,0.966,70.0,39.333,-144.0
+WAVE,S2 strong 50 Hz hum,0.501,0.953,70.0,29.333,-109.5
+WAVE,S3 motion spikes,0.366,0.865,70.0,37.111,-135.3
+WAVE,S4 weak muscle,0.447,0.851,70.0,32.444,-122.2

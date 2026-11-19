@@ -1,0 +1,60 @@
+{
+ "person": "Naveen",
+ "technique": "WAVE",
+ "title": "Wavelet (db4) denoising + rectify + low-pass",
+ "recording_s": 230.6,
+ "good_s": 40.0,
+ "good_pct": 17.3,
+ "own": {
+  "burst_to_baseline": 5.899,
+  "strides_per_min": 61.5,
+  "stride_CV": 0.397,
+  "rhythm_score": 0.449,
+  "mains_residual_pct": 0.919,
+  "good_seconds": 40.0
+ },
+ "baseline": {
+  "burst_to_baseline": 3.509,
+  "strides_per_min": 31.5,
+  "stride_CV": 0.972,
+  "rhythm_score": 0.438,
+  "mains_residual_pct": 2.498,
+  "good_seconds": 40.0
+ },
+ "synthetic_mean": {
+  "S1 typical": {
+   "corr": 0.966,
+   "lag_ms": 70.0,
+   "F1": 0.328,
+   "FP_per_min": 39.333
+  },
+  "S2 strong 50 Hz hum": {
+   "corr": 0.953,
+   "lag_ms": 70.0,
+   "F1": 0.501,
+   "FP_per_min": 29.333
+  },
+  "S3 motion spikes": {
+   "corr": 0.865,
+   "lag_ms": 70.0,
+   "F1": 0.366,
+   "FP_per_min": 37.111
+  },
+  "S4 weak muscle": {
+   "corr": 0.851,
+   "lag_ms": 70.0,
+   "F1": 0.447,
+   "FP_per_min": 32.445
+  }
+ },
+ "synthetic_overall": {
+  "corr": 0.909,
+  "lag_ms": 70.0,
+  "F1": 0.41,
+  "precision": 0.406,
+  "recall": 0.414,
+  "FP_per_min": 34.556,
+  "delay_ms": -127.75,
+  "realtime_factor": 0.004
+ }
+}

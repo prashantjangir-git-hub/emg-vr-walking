@@ -1,0 +1,5 @@
+technique,F1,corr,FP_per_min,lag_ms,realtime_factor,stride_CV,rhythm_score,mains_residual_pct,strides_per_min,cat_detection,cat_responsiveness,cat_fidelity,score_weighted,score_equal,worst_scenario_F1,owner
+IIR,0.666,0.948,21.389,83.75,0.002,0.389,0.533,1.487,56.562,3.0,2.0,1.0,2.25,2.0,0.618,Akshit
+ADFIR,0.843,0.808,8.389,174.5,0.002,0.398,0.481,1.568,52.455,2.0,4.0,3.0,2.75,3.0,0.817,Mehul
+WAVE,0.41,0.909,34.556,70.0,0.004,0.345,0.501,1.56,64.616,4.0,1.0,2.0,2.75,2.333,0.327,Naveen
+TKEO,0.966,0.878,2.389,84.25,0.002,0.434,0.484,1.487,56.429,1.0,2.0,2.5,1.625,1.833,0.905,Prashant

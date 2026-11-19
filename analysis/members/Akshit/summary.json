@@ -1,0 +1,60 @@
+{
+ "person": "Akshit",
+ "technique": "IIR",
+ "title": "Classical IIR chain (Butterworth band-pass + notch + rectify + low-pass)",
+ "recording_s": 116.9,
+ "good_s": 48.0,
+ "good_pct": 41.1,
+ "own": {
+  "burst_to_baseline": 3.2,
+  "strides_per_min": 62.5,
+  "stride_CV": 0.571,
+  "rhythm_score": 0.535,
+  "mains_residual_pct": 0.982,
+  "good_seconds": 48.0
+ },
+ "baseline": {
+  "burst_to_baseline": 9.62,
+  "strides_per_min": 25.0,
+  "stride_CV": 0.966,
+  "rhythm_score": 0.649,
+  "mains_residual_pct": 9.251,
+  "good_seconds": 48.0
+ },
+ "synthetic_mean": {
+  "S1 typical": {
+   "corr": 0.978,
+   "lag_ms": 84.0,
+   "F1": 0.704,
+   "FP_per_min": 18.889
+  },
+  "S2 strong 50 Hz hum": {
+   "corr": 0.976,
+   "lag_ms": 84.0,
+   "F1": 0.618,
+   "FP_per_min": 23.778
+  },
+  "S3 motion spikes": {
+   "corr": 0.923,
+   "lag_ms": 83.0,
+   "F1": 0.696,
+   "FP_per_min": 19.556
+  },
+  "S4 weak muscle": {
+   "corr": 0.915,
+   "lag_ms": 84.0,
+   "F1": 0.644,
+   "FP_per_min": 23.333
+  }
+ },
+ "synthetic_overall": {
+  "corr": 0.948,
+  "lag_ms": 83.75,
+  "F1": 0.666,
+  "precision": 0.647,
+  "recall": 0.686,
+  "FP_per_min": 21.389,
+  "delay_ms": -33.25,
+  "realtime_factor": 0.002
+ }
+}

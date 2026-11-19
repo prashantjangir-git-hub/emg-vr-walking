@@ -1,0 +1,60 @@
+{
+ "person": "Mehul",
+ "technique": "ADFIR",
+ "title": "FIR band-pass + adaptive LMS mains canceller + moving RMS",
+ "recording_s": 243.3,
+ "good_s": 48.0,
+ "good_pct": 19.7,
+ "own": {
+  "burst_to_baseline": 2.651,
+  "strides_per_min": 52.5,
+  "stride_CV": 0.308,
+  "rhythm_score": 0.505,
+  "mains_residual_pct": 1.696,
+  "good_seconds": 48.0
+ },
+ "baseline": {
+  "burst_to_baseline": 3.522,
+  "strides_per_min": 23.75,
+  "stride_CV": 0.83,
+  "rhythm_score": 0.609,
+  "mains_residual_pct": 13.94,
+  "good_seconds": 48.0
+ },
+ "synthetic_mean": {
+  "S1 typical": {
+   "corr": 0.911,
+   "lag_ms": 175.0,
+   "F1": 0.868,
+   "FP_per_min": 7.778
+  },
+  "S2 strong 50 Hz hum": {
+   "corr": 0.911,
+   "lag_ms": 175.0,
+   "F1": 0.853,
+   "FP_per_min": 9.778
+  },
+  "S3 motion spikes": {
+   "corr": 0.717,
+   "lag_ms": 173.0,
+   "F1": 0.835,
+   "FP_per_min": 9.778
+  },
+  "S4 weak muscle": {
+   "corr": 0.693,
+   "lag_ms": 175.0,
+   "F1": 0.817,
+   "FP_per_min": 6.222
+  }
+ },
+ "synthetic_overall": {
+  "corr": 0.808,
+  "lag_ms": 174.5,
+  "F1": 0.843,
+  "precision": 0.852,
+  "recall": 0.837,
+  "FP_per_min": 8.389,
+  "delay_ms": 46.35,
+  "realtime_factor": 0.002
+ }
+}
